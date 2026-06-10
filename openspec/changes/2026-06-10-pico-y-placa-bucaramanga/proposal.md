@@ -23,7 +23,7 @@ The Pico y Placa rule rotates quarterly and is published only in scattered news 
 ## Non-Goals
 
 - **No auth, no payments, no public API** in v1.
-- No vehicle-type-aware restrictions surfaced in user copy (parser may still classify for telemetry/logging).
+- No vehicle-type-aware restrictions surfaced in user copy. The parser classifies the format and the API exposes it as a `formato_detectado` field (informational only, never affects the rule), but the UI does not display it.
 - No push notifications, history endpoint, native mobile app.
 - No multi-city beyond AMB.
 - No Pico y Placa ambiental — scraper filters it out.
@@ -81,8 +81,10 @@ The Pico y Placa rule rotates quarterly and is published only in scattered news 
 
 ### API contract (refined from user's OpenAPI)
 
-- `GET /v1/restriccion?municipio={slug}&fecha={YYYY-MM-DD}`
-  - 200: `{ municipio, fecha, restricted: bool, last_digit: 0-9, rule: "weekday"|"saturday"|"festivo", source: "rotation"|"override", generated_at }`
+- `GET /v1/restriccion?municipio={slug}&fecha={YYYY-MM-DD}&placa={string}`
+  - 200: `{ municipio, fecha, placa_normalized, restricted: bool, last_digit: 0-9, formato_detectado: "particular"|"moto"|"oficial"|"diplomatico"|"remolque"|"temporal"|"fuerza_publica"|"desconocido", rule: "weekday"|"saturday"|"festivo", source: "rotation"|"override", generated_at }`
+    - `formato_detectado` is **informational only** — it never affects the rule. Surfaced for analytics (Worker logs) and for clients that want to display a confirmation chip. The frontend in v1 does NOT show it.
+    - `placa_normalized` is the input with whitespace/case normalized (e.g., `abc 123` → `ABC123`).
   - 404: `{ error: "rotation_unknown", municipio, requested_date }` (Q3 fail-safe)
   - 400: `{ error: "bad_plate"|"bad_date"|"bad_municipio" }`
   - Headers on 200: `Cache-Control: public, max-age=3600` (Q1 decision)
