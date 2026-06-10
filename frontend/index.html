@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Consultá si tu carro tiene Pico y Placa hoy en Bucaramanga y el área metropolitana." />
+    <meta name="theme-color" content="#0a0f1f" />
+    <title>Pico y Placa — Bucaramanga AMB</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section id="hero" class="hero">
+        <span class="hero-label" id="hero-label">Cargando…</span>
+        <div class="hero-digit-container" id="hero-digit-container">
+          <span class="hero-digit" id="hero-digit" aria-live="polite"></span>
+        </div>
+        <span class="hero-sub" id="hero-sub"></span>
+      </section>
+
+      <section id="input-section" class="input-section">
+        <div class="input-group">
+          <label for="plate-input" class="input-label">Placa</label>
+          <div class="plate-input-wrapper">
+            <input
+              type="text"
+              id="plate-input"
+              class="plate-input"
+              maxlength="10"
+              placeholder="ABC123"
+              autocomplete="off"
+              inputmode="text"
+            />
+            <span class="live-digit" id="live-digit" aria-live="polite"></span>
+          </div>
+          <span class="input-hint" id="input-hint"></span>
+        </div>
+
+        <div class="input-group">
+          <label for="municipio-select" class="input-label">Municipio</label>
+          <div class="custom-select-wrapper">
+            <select id="municipio-select" class="custom-select">
+              <option value="bucaramanga">Bucaramanga</option>
+              <option value="floridablanca">Floridablanca</option>
+              <option value="giron">Girón</option>
+              <option value="piedecuesta">Piedecuesta</option>
+            </select>
+            <span class="select-arrow" aria-hidden="true">▾</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="date-input" class="input-label">Fecha</label>
+          <input type="date" id="date-input" class="date-input" />
+        </div>
+
+        <button type="button" id="consultar-btn" class="btn-consultar">
+          Consultar
+        </button>
+      </section>
+
+      <section id="result" class="result result--hidden" aria-live="polite">
+        <div class="result-inner">
+          <div class="result-status" id="result-status"></div>
+          <p class="result-message" id="result-message"></p>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

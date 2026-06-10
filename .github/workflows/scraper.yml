@@ -1,0 +1,64 @@
+name: Pico y Placa Scraper
+
+on:
+  schedule:
+    # Weekly: every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    # Manual trigger for testing or mid-week re-runs
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    name: Scrape & Upsert Rotation Data
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        working-directory: python
+        run: |
+          python -m pip install --upgrade pip
+          pip install beautifulsoup4 httpx
+
+      - name: Run scraper
+        id: scraper
+        working-directory: python
+        run: python -m scraper
+        env:
+          SCRAPER_PRIMARY_URL: "https://bucaramanga.gov.co/noticias/?s=pico+y+placa"
+          SCRAPER_FALLBACK_URL: "https://sistemadebusqueda.bucaramanga.gov.co"
+
+      - name: Run unit tests (fail-safe verification)
+        working-directory: python
+        run: |
+          pip install pytest pytest-cov
+          pytest scraper/ plate_parser/ -v --tb=short
+
+      - name: Stale data check
+        if: always()
+        run: |
+          echo "::group::Stale Data Check"
+          echo "Scraper run completed at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "Check Workflow Logs above for 'scraper_run_complete' events."
+          echo "::endgroup::"
+
+      - name: Warn on stale data
+        if: failure()
+        run: |
+          echo "::warning title=Stale Rotation Data::The scraper failed to write current-quarter rotation data. The API will return 404 rotation_unknown for requests until the next successful run. Investigate source page structure changes."

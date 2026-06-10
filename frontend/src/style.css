@@ -1,0 +1,446 @@
+/* ==========================================================================
+   Pico y Placa Bucaramanga — Design System
+   ==========================================================================
+   Typography: Outfit (Google Fonts)
+   Color palette: deep navy/charcoal background, amber accent, green/red status
+   Motion: Motion One (3.8 KB)
+   Mobile-first: 360px minimum viewport
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Custom Properties
+   -------------------------------------------------------------------------- */
+:root {
+  --bg-primary: #0a0f1f;
+  --bg-surface: #141a2e;
+  --bg-elevated: #1a2040;
+
+  --text-primary: #f0f2f5;
+  --text-secondary: #8892b0;
+  --text-muted: #5a6380;
+
+  --accent: #f59e0b;
+  --accent-glow: rgba(245, 158, 11, 0.25);
+
+  --green: #10b981;
+  --green-bg: rgba(16, 185, 129, 0.12);
+  --red: #ef4444;
+  --red-bg: rgba(239, 68, 68, 0.12);
+
+  --border: #1e2a45;
+  --border-focus: #f59e0b;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --font-family: "Outfit", system-ui, -apple-system, sans-serif;
+
+  --digit-size: clamp(6rem, 20vw, 12rem);
+}
+
+/* --------------------------------------------------------------------------
+   Reset & Base
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+#app {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   Hero Component
+   -------------------------------------------------------------------------- */
+.hero {
+  text-align: center;
+  padding-top: 2rem;
+  width: 100%;
+}
+
+.hero-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.75rem;
+}
+
+.hero-digit-container {
+  margin: 0.5rem 0;
+  perspective: 600px;
+}
+
+.hero-digit {
+  display: block;
+  font-size: var(--digit-size);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  transition: color 0.4s ease;
+  transform-origin: center center;
+}
+
+.hero-digit--active {
+  color: var(--accent);
+  text-shadow: 0 0 60px var(--accent-glow), 0 0 120px var(--accent-glow);
+}
+
+.hero-digit--calm {
+  color: var(--text-secondary);
+  font-size: clamp(3rem, 12vw, 8rem);
+}
+
+.hero-sub {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   Input Section
+   -------------------------------------------------------------------------- */
+.input-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.input-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Plate input wrapper — contains input + live digit indicator */
+.plate-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.plate-input-wrapper:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.plate-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 0.875rem 1rem;
+  min-height: 52px;
+  text-transform: uppercase;
+}
+
+.plate-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+/* Live digit indicator — appears at the right edge */
+.live-digit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-right: 0.5rem;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.live-digit--visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Inline hint / validation message */
+.input-hint {
+  font-size: 0.8rem;
+  color: var(--red);
+  min-height: 1.2em;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.input-hint--visible {
+  opacity: 1;
+}
+
+/* Custom municipality dropdown */
+.custom-select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.custom-select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.875rem 2.5rem 0.875rem 1rem;
+  min-height: 52px;
+  cursor: pointer;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.custom-select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.select-arrow {
+  position: absolute;
+  right: 0.875rem;
+  pointer-events: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  transition: transform 0.25s ease;
+}
+
+.custom-select:focus + .select-arrow {
+  transform: rotate(180deg);
+}
+
+/* Date input */
+.date-input {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.875rem 1rem;
+  min-height: 52px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  color-scheme: dark;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+/* Consultar button */
+.btn-consultar {
+  width: 100%;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-family: var(--font-family);
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1.5rem;
+  min-height: 52px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  margin-top: 0.25rem;
+}
+
+.btn-consultar:hover {
+  background: #fbbf24;
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.btn-consultar:active {
+  transform: scale(0.97);
+}
+
+.btn-consultar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Result Component
+   -------------------------------------------------------------------------- */
+.result {
+  width: 100%;
+  overflow: hidden;
+}
+
+.result--hidden {
+  display: none;
+}
+
+.result-inner {
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.result-status {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.375rem 0.875rem;
+  border-radius: 999px;
+  margin-bottom: 0.75rem;
+}
+
+.result-status--restricted {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.result-status--unrestricted {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.result-status--error {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent);
+}
+
+.result-message {
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.result-message--restricted {
+  color: var(--red);
+}
+
+.result-message--unrestricted {
+  color: var(--green);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive — Mobile-first
+   -------------------------------------------------------------------------- */
+
+/* 360px — absolute minimum */
+@media (max-width: 360px) {
+  #app {
+    padding: 1rem 0.75rem 2rem;
+    gap: 1rem;
+  }
+
+  .hero {
+    padding-top: 1rem;
+  }
+
+  :root {
+    --digit-size: clamp(4.5rem, 18vw, 7rem);
+  }
+}
+
+/* Tablet and up — center content, increase spacing */
+@media (min-width: 768px) {
+  #app {
+    padding: 3rem 2rem 4rem;
+    gap: 2rem;
+  }
+
+  .hero {
+    padding-top: 2.5rem;
+  }
+
+  .btn-consultar {
+    max-width: 320px;
+    align-self: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Focus & Accessibility
+   -------------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "pico-y-placa-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker API for Pico y Placa Bucaramanga restriction queries",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250610.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5",
+    "wrangler": "^4.1.0"
+  }
+}

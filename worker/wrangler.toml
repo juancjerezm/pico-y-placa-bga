@@ -1,0 +1,21 @@
+# Pico y Placa Bucaramanga — Cloudflare Worker API
+# Read-only queries against Supabase Postgres
+name = "pico-y-placa-api"
+main = "src/index.ts"
+compatibility_date = "2025-06-10"
+compatibility_flags = ["nodejs_compat"]
+
+# Free-tier: 100k requests/day, 10ms CPU/request
+# This Worker is well under budget (read-only, cached responses)
+
+[vars]
+# DATABASE_URL is a SECRET — set via `wrangler secret put DATABASE_URL`
+# Format: postgres://user:password@host:6543/postgres?sslmode=require
+# Use Supabase Transaction pooler port (6543) for serverless compatibility
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[[durable_objects.bindings]]
+# No Durable Objects needed for read-only API
