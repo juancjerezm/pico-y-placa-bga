@@ -5,7 +5,7 @@
  *   GET /v1/restriccion?municipio=X&fecha=YYYY-MM-DD&placa=ABC123
  *   GET /v1/schedule?municipio=X
  *
- * Read-only. No auth, no CORS. Cache-Control: public, max-age=3600 on 200.
+ * Read-only. Rate-limited. Cache-Control: public, max-age=3600 on 200.
  */
 
 import postgres from "postgres";
@@ -40,6 +40,10 @@ const VALID_MUNICIPIOS = new Set([
 
 const DEFAULT_MUNICIPIO = "bucaramanga";
 
+/** Max requests per IP per window (Nivel 1 MVP rate limiting). */
+const RATE_LIMIT = 100;
+const RATE_WINDOW_MS = 60_000; // 1 minute
+
 const SPANISH_WEEKDAYS: Record<number, string> = {
   0: "domingo",
   1: "lunes",
@@ -60,6 +64,79 @@ const MIN_DATE = "2022-01-01";
 const CACHE_HEADER = "public, max-age=3600";
 
 // ---------------------------------------------------------------------------
+// Rate limiter — Nivel 1 MVP (in-memory, per-IP, per-worker-instance)
+// ---------------------------------------------------------------------------
+
+interface RateEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateStore = new Map<string, RateEntry>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateStore.get(ip);
+
+  // Lazy cleanup: remove expired entries on access
+  if (entry && now > entry.resetAt) {
+    rateStore.delete(ip);
+    rateStore.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+
+  if (!entry) {
+    rateStore.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+
+  entry.count++;
+  return entry.count > RATE_LIMIT;
+}
+
+// ---------------------------------------------------------------------------
+// Security headers — Nivel 1 MVP (landing page checklist, 3.1)
+// ---------------------------------------------------------------------------
+
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+  "X-XSS-Protection": "0", // deprecated but explicitly disabled
+};
+
+/** Merge security headers into an existing Headers object. */
+function addSecurityHeaders(headers: Headers): void {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    headers.set(key, value);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Logging — structured, no sensitive data (per guía 3.1 + 5.1)
+// ---------------------------------------------------------------------------
+
+function logRequest(
+  method: string,
+  path: string,
+  status: number,
+  ip: string,
+  durationMs: number,
+): void {
+  console.log(
+    JSON.stringify({
+      ts: new Date().toISOString(),
+      method,
+      path,
+      status,
+      ip,
+      duration_ms: durationMs,
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Default export — CF Worker entry point
 // ---------------------------------------------------------------------------
 
@@ -69,28 +146,45 @@ export default {
     env: Env,
     _ctx: ExecutionContext,
   ): Promise<Response> {
+    const start = Date.now();
     const url = new URL(request.url);
     const path = url.pathname;
+    const method = request.method;
 
-    if (path === "/v1/restriccion" && request.method === "GET") {
+    // --- Rate limiting (per IP) ---
+    const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+    if (isRateLimited(ip)) {
+      logRequest(method, path, 429, ip, Date.now() - start);
+      return errorResponse(429, { error: "too_many_requests" });
+    }
+
+    let response: Response;
+
+    if (path === "/v1/restriccion" && method === "GET") {
       const sql = postgres(env.DATABASE_URL, {
         idle_timeout: 10,
         max_lifetime: 60,
       });
       const queries = createQueries(sql);
-      return handleRestriccion(url, queries);
-    }
-
-    if (path === "/v1/schedule" && request.method === "GET") {
+      response = await handleRestriccion(url, queries);
+    } else if (path === "/v1/schedule" && method === "GET") {
       const sql = postgres(env.DATABASE_URL, {
         idle_timeout: 10,
         max_lifetime: 60,
       });
       const queries = createQueries(sql);
-      return handleSchedule(url, queries);
+      response = await handleSchedule(url, queries);
+    } else {
+      response = new Response("Not Found", { status: 404 });
     }
 
-    return new Response("Not Found", { status: 404 });
+    // --- Security headers on every response ---
+    addSecurityHeaders(response.headers);
+
+    // --- Logging (structured, no sensitive data) ---
+    logRequest(method, path, response.status, ip, Date.now() - start);
+
+    return response;
   },
 };
 
@@ -342,4 +436,14 @@ function json(status: number, body: ErrorResponse): Response {
     status,
     headers: { "Content-Type": "application/json; charset=utf-8" },
   });
+}
+
+/** Return a non-200 error response with security headers. */
+function errorResponse(status: number, body: Record<string, string>): Response {
+  const res = new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+  addSecurityHeaders(res.headers);
+  return res;
 }

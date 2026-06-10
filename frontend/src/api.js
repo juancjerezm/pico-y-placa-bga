@@ -7,7 +7,7 @@
 
 const BASE_URL =
   document.querySelector("script[data-api-url]")?.dataset.apiUrl ??
-  "https://pico-y-placa-api.workers.dev";
+  "https://pico-y-placa-api.juanchob612.workers.dev";
 
 /**
  * @typedef {Object} RestriccionResponse

@@ -6,7 +6,7 @@ compatibility_date = "2025-06-10"
 compatibility_flags = ["nodejs_compat"]
 
 # Free-tier: 100k requests/day, 10ms CPU/request
-# This Worker is well under budget (read-only, cached responses)
+# Rate-limited at 100 req/min per IP (Nivel 1 MVP security)
 
 [vars]
 # DATABASE_URL is a SECRET — set via `wrangler secret put DATABASE_URL`
@@ -17,5 +17,7 @@ compatibility_flags = ["nodejs_compat"]
 enabled = true
 head_sampling_rate = 1
 
-[[durable_objects.bindings]]
-# No Durable Objects needed for read-only API
+# Security headers are applied in-code (see src/index.ts):
+# X-Content-Type-Options, X-Frame-Options, Referrer-Policy, HSTS, X-XSS-Protection
+# Rate limiting is applied in-code (100 req/min per IP).
+# Cloudflare WAF rate limiting can be added via dashboard for DDoS protection.
