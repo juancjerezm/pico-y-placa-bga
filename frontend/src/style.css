@@ -151,6 +151,31 @@ body {
   color: var(--green-400, #22c55e);
 }
 
+.hero-progress {
+  width: 100%;
+  max-width: 220px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  margin: 0.65rem auto 0;
+  overflow: hidden;
+}
+
+.hero-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--amber-400, #f59e0b);
+  transition: width 1s linear;
+}
+
+.hero-progress-bar--active {
+  background: var(--red-400, #ef4444);
+}
+
+.hero-progress-bar--ended {
+  background: var(--green-400, #22c55e);
+}
+
 /* --------------------------------------------------------------------------
    Input Section
    -------------------------------------------------------------------------- */

@@ -33,57 +33,84 @@ const RESTRICTION_HOURS = {
 let countdownInterval = null;
 
 /**
- * Start the live countdown timer (updates every 60s).
+ * Start the live countdown timer (updates every second for smooth progress).
  */
 export function startCountdown() {
   if (countdownInterval) clearInterval(countdownInterval);
   updateCountdown();
-  countdownInterval = setInterval(updateCountdown, 60_000);
+  countdownInterval = setInterval(updateCountdown, 1000);
 }
 
 function updateCountdown() {
   const timerEl = document.getElementById("hero-timer");
+  const progressEl = document.getElementById("hero-progress");
+  const barEl = document.getElementById("hero-progress-bar");
   if (!timerEl) return;
 
   const now = new Date();
-  const day = now.getDay(); // 0=Sun, 6=Sat
+  const day = now.getDay();
 
   // No restriction on Sundays
   if (day === 0) {
     timerEl.textContent = "";
     timerEl.style.display = "none";
+    if (progressEl) progressEl.style.display = "none";
     return;
   }
 
   const hours = day === 6 ? RESTRICTION_HOURS.saturday : RESTRICTION_HOURS.weekday;
-  const startTime = new Date(now);
-  startTime.setHours(hours.start, 0, 0, 0);
-  const endTime = new Date(now);
-  endTime.setHours(hours.end, 0, 0, 0);
-
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const startMins = hours.start * 60;
+  const endMins = hours.end * 60;
+  const totalMins = endMins - startMins;
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+  const currentSecs = currentMins * 60 + now.getSeconds();
 
   timerEl.style.display = "block";
+  if (progressEl) progressEl.style.display = "block";
 
-  if (currentMinutes < hours.start * 60) {
-    // Before restriction starts
-    const minsLeft = hours.start * 60 - currentMinutes;
-    const h = Math.floor(minsLeft / 60);
-    const m = minsLeft % 60;
-    timerEl.textContent = `Empieza en ${h}h ${m}m`;
+  if (currentMins < hours.start * 60) {
+    // Before restriction — countdown to start
+    const secsLeft = startMins * 60 - currentSecs;
+    const h = Math.floor(secsLeft / 3600);
+    const m = Math.floor((secsLeft % 3600) / 60);
+    const s = secsLeft % 60;
+    timerEl.textContent = `Empieza en ${h}h ${m}m ${s.toString().padStart(2, "0")}s`;
     timerEl.className = "hero-timer hero-timer--upcoming";
-  } else if (currentMinutes < hours.end * 60) {
+
+    // Progress: how close to start (reverse)
+    const totalWaitMins = startMins;
+    const elapsedWait = currentMins;
+    const pct = Math.min(100, Math.round((elapsedWait / totalWaitMins) * 100));
+    if (barEl) {
+      barEl.style.width = `${pct}%`;
+      barEl.className = "hero-progress-bar hero-progress-bar--active";
+    }
+  } else if (currentMins < hours.end * 60) {
     // During restriction
-    const minsLeft = hours.end * 60 - currentMinutes;
-    const h = Math.floor(minsLeft / 60);
-    const m = minsLeft % 60;
+    const secsLeft = endMins * 60 - currentSecs;
+    const h = Math.floor(secsLeft / 3600);
+    const m = Math.floor((secsLeft % 3600) / 60);
+    const s = secsLeft % 60;
     const endLabel = `${hours.end}:00`;
-    timerEl.textContent = `Faltan ${h}h ${m}m (hasta las ${endLabel})`;
+    timerEl.textContent = `Faltan ${h}h ${m}m ${s.toString().padStart(2, "0")}s (hasta las ${endLabel})`;
     timerEl.className = "hero-timer hero-timer--active";
+
+    // Progress: how much of restriction has elapsed
+    const elapsedRestriction = currentMins - startMins;
+    const pct = Math.round((elapsedRestriction / totalMins) * 100);
+    if (barEl) {
+      barEl.style.width = `${pct}%`;
+      barEl.className = "hero-progress-bar hero-progress-bar--active";
+    }
   } else {
-    // Restriction ended for today
+    // Restriction ended
     timerEl.textContent = "Terminó por hoy";
     timerEl.className = "hero-timer hero-timer--ended";
+
+    if (barEl) {
+      barEl.style.width = "100%";
+      barEl.className = "hero-progress-bar hero-progress-bar--ended";
+    }
   }
 }
 
