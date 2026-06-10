@@ -278,12 +278,6 @@ export async function handleRestriccion(
 
   const payload = rotation.raw_payload as RotationPayload;
 
-  // --- Rolling cycle: calculate correct digits for this date ---
-  let weekdays = payload.weekdays;
-  if (payload.cycle_anchor && payload.cycle_pairs) {
-    weekdays = getWeekdaysForDate(payload.cycle_anchor, payload.cycle_pairs, dateObj);
-  }
-
   // --- Saturday: consult per-week calendar ---
   if (dayOfWeek === 6) {
     const isoWeek = getISOWeek(dateObj);
@@ -321,6 +315,7 @@ export async function handleRestriccion(
 
   // --- Weekday: check rotation digits ---
   const weekdayKey = SPANISH_WEEKDAYS[dayOfWeek]!;
+  const weekdays = payload.weekdays ?? {};
   let digits = weekdays[weekdayKey];
 
   // Fallback: try unaccented key
