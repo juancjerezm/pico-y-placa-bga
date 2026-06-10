@@ -1,0 +1,62 @@
+project: pruebaMinimax
+mode: hybrid
+strict_tdd: true
+strict_tdd_scope:
+  enforced:
+    - python/scraper
+    - python/validation
+    - python/plate_parser
+  assumed_when_defined:
+    - frontend/vanilla-js
+
+context: |
+  Pico y Placa traffic-restriction system for Bucaramanga, Colombia.
+  Architecture: Python scraper (cron via GitHub Actions) -> Supabase (Postgres) ->
+  Cloudflare Workers API -> static HTML/JS frontend hosted on Vercel/Netlify.
+  Currently no source code; this config is bootstrap only.
+
+testing:
+  strict_tdd: true
+  components:
+    python:
+      runner: pytest
+      coverage: pytest-cov
+      assumed: true
+      reason: no code yet; intended stack per user declaration
+    frontend:
+      runner: vitest
+      assumed: true
+      reason: no code yet; intended stack per user declaration
+
+phase_rules:
+  proposal:
+    must_define: [intent, scope, approach]
+    rejection_triggers:
+      - no_acceptance_criteria
+      - scope_spans_multiple_changes
+  spec:
+    format: delta
+    require_scenarios: true
+    scenario_style: gherkin
+  design:
+    must_justify_non_standard_choices: true
+    require_explicit_packages: true
+  tasks:
+    granularity: review_unit
+    max_lines_changed: 400
+  apply:
+    require_working_tests: true
+    tdd_order: red_green_refactor
+  verify:
+    require_test_run_log: true
+    require_scenario_coverage: true
+  archive:
+    sync_delta_to_main_specs: true
+    require_archive_summary: true
+
+preflight:
+  execution_mode: interactive
+  artifact_store: both
+  chained_pr_strategy: ask-always
+  review_budget_lines: 400
+  topic_key: sdd-init-minimini/pruebaMinimax
