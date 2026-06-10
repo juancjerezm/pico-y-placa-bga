@@ -111,6 +111,10 @@ function addSecurityHeaders(headers: Headers): void {
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     headers.set(key, value);
   }
+  // CORS — allow Vercel frontend and local dev
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type");
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +163,13 @@ export default {
     }
 
     let response: Response;
+
+    // --- CORS preflight ---
+    if (method === "OPTIONS") {
+      response = new Response(null, { status: 204 });
+      addSecurityHeaders(response.headers);
+      return response;
+    }
 
     if (path === "/v1/restriccion" && method === "GET") {
       const sql = postgres(env.DATABASE_URL, {

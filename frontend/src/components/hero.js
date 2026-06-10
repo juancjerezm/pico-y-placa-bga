@@ -53,7 +53,7 @@ export function renderHero(data) {
   }
 
   // Show digits (e.g., "5" or "5·6")
-  const digitText = data.digits.join("·");
+  const digitText = data.digits.join(" | ");
   digitEl.textContent = digitText;
   digitEl.classList.remove("hero-digit--calm");
   digitEl.classList.add("hero-digit--active");
