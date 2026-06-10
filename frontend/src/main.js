@@ -100,7 +100,7 @@ async function handleSubmit(data, opts = {}) {
 
     saveMunicipioPreference(data.municipio);
     state.lastResult = result;
-    showResult(result);
+    showResult({ ...result, fecha: data.fecha });
   } catch {
     // Network error — show friendly message
     showResult({ error: "network" });

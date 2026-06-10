@@ -82,18 +82,30 @@ function renderRestriction(data, statusEl, messageEl) {
   statusEl.className = "result-status";
   messageEl.className = "result-message";
 
+  const date = data.fecha ? new Date(data.fecha + "T12:00:00") : new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isToday = date.toDateString() === today.toDateString();
+
   if (data.restricted) {
     statusEl.classList.add("result-status--restricted");
     statusEl.textContent = "Restringido";
-    messageEl.textContent = "No podés circular hoy con este vehículo";
+    messageEl.textContent = isToday
+      ? "Hoy no podés circular con este vehículo"
+      : `El ${formatDate(date)} no podés circular con este vehículo`;
     messageEl.classList.add("result-message--restricted");
   } else {
     statusEl.classList.add("result-status--unrestricted");
     statusEl.textContent = "Sin restricción";
-    messageEl.textContent = "Podés circular libremente hoy";
 
     if (data.rule === "festivo") {
-      messageEl.textContent = "Hoy es festivo — podés circular libremente";
+      messageEl.textContent = isToday
+        ? "Hoy es festivo — podés circular libremente"
+        : `El ${formatDate(date)} es festivo — podés circular libremente`;
+    } else if (isToday) {
+      messageEl.textContent = "Hoy podés circular libremente";
+    } else {
+      messageEl.textContent = `El ${formatDate(date)} podés circular libremente`;
     }
 
     messageEl.classList.add("result-message--unrestricted");
@@ -112,6 +124,17 @@ function renderRestriction(data, statusEl, messageEl) {
     { opacity: [0, 1], y: [10, 0] },
     { duration: 0.35, delay: 0.25, easing: "ease-out" }
   );
+}
+
+/**
+ * Format a Date as "11 de junio".
+ */
+function formatDate(date) {
+  const months = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  ];
+  return `${date.getDate()} de ${months[date.getMonth()]}`;
 }
 
 /**
