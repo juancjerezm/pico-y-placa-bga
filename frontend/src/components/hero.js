@@ -3,6 +3,7 @@
  *
  * Uses Motion One for airport-style flip animation on digit changes.
  * Shows a calm "no restriction" state on Sundays, festivos, or missing data.
+ * Live countdown timer for restriction hours.
  */
 import { animate, stagger } from "motion";
 
@@ -22,6 +23,69 @@ const MUNICIPIO_NAMES = {
   giron: "Girón",
   piedecuesta: "Piedecuesta",
 };
+
+/** Restriction hours per day type. */
+const RESTRICTION_HOURS = {
+  weekday: { start: 6, end: 20 },   // 6 AM - 8 PM
+  saturday: { start: 9, end: 13 },  // 9 AM - 1 PM
+};
+
+let countdownInterval = null;
+
+/**
+ * Start the live countdown timer (updates every 60s).
+ */
+export function startCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  updateCountdown();
+  countdownInterval = setInterval(updateCountdown, 60_000);
+}
+
+function updateCountdown() {
+  const timerEl = document.getElementById("hero-timer");
+  if (!timerEl) return;
+
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 6=Sat
+
+  // No restriction on Sundays
+  if (day === 0) {
+    timerEl.textContent = "";
+    timerEl.style.display = "none";
+    return;
+  }
+
+  const hours = day === 6 ? RESTRICTION_HOURS.saturday : RESTRICTION_HOURS.weekday;
+  const startTime = new Date(now);
+  startTime.setHours(hours.start, 0, 0, 0);
+  const endTime = new Date(now);
+  endTime.setHours(hours.end, 0, 0, 0);
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  timerEl.style.display = "block";
+
+  if (currentMinutes < hours.start * 60) {
+    // Before restriction starts
+    const minsLeft = hours.start * 60 - currentMinutes;
+    const h = Math.floor(minsLeft / 60);
+    const m = minsLeft % 60;
+    timerEl.textContent = `Empieza en ${h}h ${m}m`;
+    timerEl.className = "hero-timer hero-timer--upcoming";
+  } else if (currentMinutes < hours.end * 60) {
+    // During restriction
+    const minsLeft = hours.end * 60 - currentMinutes;
+    const h = Math.floor(minsLeft / 60);
+    const m = minsLeft % 60;
+    const endLabel = `${hours.end}:00`;
+    timerEl.textContent = `Faltan ${h}h ${m}m (hasta las ${endLabel})`;
+    timerEl.className = "hero-timer hero-timer--active";
+  } else {
+    // Restriction ended for today
+    timerEl.textContent = "Terminó por hoy";
+    timerEl.className = "hero-timer hero-timer--ended";
+  }
+}
 
 /**
  * Render the hero with current data.

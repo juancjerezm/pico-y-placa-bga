@@ -11,7 +11,7 @@ import {
   saveMunicipioPreference,
   loadMunicipioPreference,
 } from "./storage.js";
-import { renderHero, updateHero } from "./components/hero.js";
+import { renderHero, updateHero, startCountdown } from "./components/hero.js";
 import { initInput, todayISO } from "./components/input.js";
 import { showResult, hideResult } from "./components/result.js";
 
@@ -48,6 +48,7 @@ async function bootstrap() {
   // 3. Fetch hero data
   const heroData = await fetchHeroData(state.municipio, state.fecha);
   renderHero({ ...heroData, municipio: state.municipio, fecha: state.fecha });
+  startCountdown();
 
   // 4. If there was a saved query, re-run it
   if (saved && saved.placa) {

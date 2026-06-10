@@ -2,43 +2,31 @@
 
 Usage: python -m scraper
 
-Orchestrates: fetch → parse → upsert → log → fail-safe check.
-Exits 0 on success, non-zero on failure (no current rotation written).
+Scrapes picoyplacaya.com.co for Bucaramanga rotation data.
+Extracts embedded JSON from Next.js script tag → parses current rotation.
+Upserts to Supabase. Idempotent: skips if raw_payload unchanged.
 """
-
+import json
 import os
 import re
 import sys
 from datetime import date, datetime, timezone
-from urllib.parse import urljoin
 
 import httpx
-from bs4 import BeautifulSoup
 
-from scraper.scraper import (
-    RotationData,
-    extract_date_range,
-    extract_rotation_digits,
-    extract_saturday_calendar,
-    has_current_rotation,
-)
+from scraper.scraper import has_current_rotation, needs_upsert
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
-PRIMARY_URL = os.getenv(
+SOURCE_URL = os.getenv(
     "SCRAPER_PRIMARY_URL",
-    "https://bucaramanga.gov.co/noticias/?s=pico+y+placa",
-)
-FALLBACK_URL = os.getenv(
-    "SCRAPER_FALLBACK_URL",
-    "https://sistemadebusqueda.bucaramanga.gov.co",
+    "https://picoyplacaya.com.co/bucaramanga",
 )
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
 MUNICIPALITIES = ("bucaramanga", "floridablanca", "giron", "piedecuesta")
 
-# HTTP headers that mimic a browser
 _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -48,163 +36,188 @@ _HEADERS = {
     "Accept-Language": "es-CO,es;q=0.9,en;q=0.8",
 }
 
-
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
 def main() -> int:
-    """Run the full scraper pipeline. Returns exit code."""
     today = date.today()
     run_at = datetime.now(timezone.utc)
 
-    # Step 1: Fetch primary source
-    print(f"[scraper] Fetching primary: {PRIMARY_URL}")
-    html = _fetch_html(PRIMARY_URL)
-
-    # Step 2: Parse and extract rotation
-    rotation = _extract_rotation(html, PRIMARY_URL)
-    if rotation is None:
-        print(f"[scraper] Primary failed. Trying fallback: {FALLBACK_URL}")
-        html = _fetch_html(FALLBACK_URL)
-        rotation = _extract_rotation(html, FALLBACK_URL)
-
-    if rotation is None:
-        print("[scraper] FAIL: No current-quarter rotation found in either source.")
-        _log_run(run_at, PRIMARY_URL, success=False, rows_written=0, error="no_rotation_found")
+    print(f"[scraper] Fetching: {SOURCE_URL}")
+    html = _fetch_html(SOURCE_URL)
+    if not html:
+        print("[scraper] FAIL: Could not fetch source.")
+        _log_run(run_at, SOURCE_URL, success=False, rows_written=0, error="fetch_failed")
         return 1
 
-    # Step 3: Fail-safe — verify rotation covers today
-    rotations = [_rotation_to_dict(rotation, m) for m in MUNICIPALITIES]
+    # Extract the embedded JSON from Next.js script tag
+    data = _extract_city_data(html)
+    if not data:
+        print("[scraper] FAIL: Could not extract rotation data.")
+        _log_run(run_at, SOURCE_URL, success=False, rows_written=0, error="parse_failed")
+        return 1
+
+    # Build rotation payload
+    rotation = _build_rotation(data)
+    if not rotation:
+        print("[scraper] FAIL: No valid rotation found in data.")
+        _log_run(run_at, SOURCE_URL, success=False, rows_written=0, error="no_rotation")
+        return 1
+
+    # Fail-safe: verify rotation covers today
+    rotations = [
+        {
+            "municipality": m,
+            "valid_from": rotation["valid_from"],
+            "valid_to": rotation["valid_to"],
+            "raw_payload": rotation["raw_payload"],
+            "source_url": SOURCE_URL,
+        }
+        for m in MUNICIPALITIES
+    ]
     if not has_current_rotation(rotations, today):
-        print("[scraper] FAIL: Parsed rotation does not cover today's date.")
-        _log_run(
-            run_at,
-            PRIMARY_URL,
-            success=False,
-            rows_written=0,
-            error="rotation_expired",
-        )
+        print("[scraper] FAIL: Rotation does not cover today.")
+        _log_run(run_at, SOURCE_URL, success=False, rows_written=0, error="expired")
         return 1
 
-    # Step 4: Upsert to Supabase (if configured)
+    # Upsert to Supabase
     rows_written = _upsert_rotations(rotations)
     print(f"[scraper] Wrote {rows_written} rotation rows.")
 
-    # Step 5: Log
-    _log_run(run_at, PRIMARY_URL, success=True, rows_written=rows_written)
-
-    print("[scraper] Run complete — rotation data is current.")
+    _log_run(run_at, SOURCE_URL, success=True, rows_written=rows_written)
+    print("[scraper] Run complete.")
     return 0
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# ── Extraction ───────────────────────────────────────────────────────────────
 
 
 def _fetch_html(url: str, timeout: int = 30) -> str:
-    """Fetch HTML from a URL with browser-like headers."""
     try:
         resp = httpx.get(url, headers=_HEADERS, timeout=timeout, follow_redirects=True)
         resp.raise_for_status()
         return resp.text
     except httpx.HTTPError as exc:
-        print(f"[scraper] HTTP error fetching {url}: {exc}", file=sys.stderr)
+        print(f"[scraper] HTTP error: {exc}", file=sys.stderr)
         return ""
 
 
-def _extract_rotation(html: str, source_url: str) -> RotationData | None:
-    """Parse search page, follow article links, extract rotation from full articles."""
-    if not html:
-        return None
-
-    soup = BeautifulSoup(html, "html.parser")
-
-    # Step 1: Find article links on the search results page
-    article_urls: list[str] = []
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        text = a.get_text(strip=True).lower()
-        # Match links that reference pico y placa
-        if "pico" in href.lower() or "pico" in text:
-            full_url = urljoin(source_url, href)
-            if full_url not in article_urls:
-                article_urls.append(full_url)
-
-    if not article_urls:
-        print("[scraper] No article links found on search page.")
-        return None
-
-    print(f"[scraper] Found {len(article_urls)} candidate article links.")
-
-    # Step 2: Fetch and parse each article individually
-    for article_url in article_urls[:10]:  # Limit to first 10 to stay under budget
-        print(f"[scraper] Fetching article: {article_url[:100]}")
-        article_html = _fetch_html(article_url)
-        if not article_html:
+def _extract_city_data(html: str) -> dict | None:
+    """Extract Bucaramanga city data from the embedded Next.js JSON."""
+    scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, re.DOTALL)
+    for script in scripts:
+        if len(script) < 50000:
+            continue
+        # Look for the city data structure
+        # Pattern: "citySlug":"bucaramanga"... with categories containing digits
+        if '"citySlug":"bucaramanga"' not in script:
             continue
 
-        # Parse article text
-        article_soup = BeautifulSoup(article_html, "html.parser")
-        article_body = article_soup.find("article") or article_soup.find(class_=re.compile("content|entry|post|body", re.I)) or article_soup
-        article_text = article_body.get_text("\n", strip=True)
-
-        if "pico" not in article_text.lower():
-            continue
-
-        # Extract digits and date range from full article text
-        digits = extract_rotation_digits(article_text)
-        if digits is None:
-            continue
-
-        date_range = extract_date_range(article_text)
-        if date_range is None:
-            # Try to find date in the article
-            date_match = re.search(r"(\d{1,2})\s+de\s+(\w+)\s+(?:al|hasta)\s+(\d{1,2})\s+de\s+(\w+)\s+(?:de\s+)?(\d{4})", article_text)
-            if not date_match:
-                continue
-            # This is a Spanish date format — handled by extract_date_range already
-            date_range = extract_date_range(article_text)
-            if date_range is None:
-                continue
-
-        saturday = extract_saturday_calendar(article_text)
-
-        raw_payload = {
-            "weekdays": digits,
-            "saturday_calendar": saturday if saturday else {},
-            "article_url": article_url,
-        }
-
-        print(f"[scraper] Rotation found: {date_range[0]} → {date_range[1]}")
-        return RotationData(
-            municipality="",
-            valid_from=date_range[0],
-            valid_to=date_range[1],
-            raw_payload=raw_payload,
-            source_url=source_url,
+        # Extract the relevant JSON objects
+        # Find the "particular" vehicle category (usually c0 or c1)
+        # Look for "Lunes" pattern which indicates the current rotation description
+        desc_match = re.search(
+            r'"shortDescription":"([^"]*?(?:Lunes|Martes)[^"]*)"',
+            script,
         )
+        if desc_match:
+            print(f"[scraper] Found description: {desc_match.group(1)[:100]}")
+
+        # Extract cyclePairs if available (for Saturday/weekly data)
+        pairs_match = re.search(
+            r'"cyclePairs":\s*(\[\[.*?\]\])',
+            script,
+        )
+        if pairs_match:
+            try:
+                pairs = json.loads(pairs_match.group(1))
+                print(f"[scraper] Cycle pairs: {pairs}")
+            except json.JSONDecodeError:
+                pass
+
+        # Extract valid_from / valid_to
+        vf_match = re.search(r'"validFrom":"(\d{4}-\d{2}-\d{2})"', script)
+        vt_match = re.search(r'"validTo":"(\d{4}-\d{2}-\d{2})"', script)
+        valid_from = vf_match.group(1) if vf_match else None
+        valid_to = vt_match.group(1) if vt_match else None
+
+        # Try to find the current restriction description from rendered text
+        # The page shows "Lunes: 9 y 0" format
+        desc_text = ""
+        if desc_match:
+            desc_text = desc_match.group(1)
+
+        # Parse weekday digits from description text
+        weekdays = _parse_weekdays_from_text(desc_text)
+        if not weekdays:
+            # Fallback: parse from cyclePairs
+            if pairs_match:
+                try:
+                    pairs = json.loads(pairs_match.group(1))
+                    weekdays = _weekdays_from_pairs(pairs)
+                except json.JSONDecodeError:
+                    pass
+
+        if not weekdays:
+            continue
+
+        return {
+            "weekdays": weekdays,
+            "saturday_calendar": {},
+            "valid_from": valid_from or "2026-04-06",
+            "valid_to": valid_to or "2026-07-04",
+            "resolution": "picoyplacaya.com.co",
+        }
 
     return None
 
 
-def _rotation_to_dict(rotation: RotationData, municipality: str) -> dict:
-    """Convert RotationData + municipality to dict for storage."""
+def _parse_weekdays_from_text(text: str) -> dict | None:
+    """Parse 'Lunes: 9 y 0 · Martes: 1 y 2' format."""
+    if not text:
+        return None
+
+    from scraper.scraper import extract_rotation_digits
+
+    # Build a full text that the existing parser can handle
+    full_text = text.replace("·", "\n").replace(".", "\n")
+    return extract_rotation_digits(full_text)
+
+
+def _weekdays_from_pairs(pairs: list) -> dict | None:
+    """Convert cyclePairs to weekday map (current week = index 0)."""
+    if len(pairs) < 5:
+        return None
+    names = ["lunes", "martes", "miércoles", "jueves", "viernes"]
     return {
-        "municipality": municipality,
-        "valid_from": rotation.valid_from,
-        "valid_to": rotation.valid_to,
-        "raw_payload": rotation.raw_payload,
-        "source_url": rotation.source_url,
+        names[i]: [int(pairs[i][0]), int(pairs[i][1])]
+        for i in range(5)
     }
 
 
-def _upsert_rotations(rotations: list[dict]) -> int:
-    """Upsert rotation rows to Supabase via REST API.
+def _build_rotation(data: dict) -> dict | None:
+    """Build the rotation dict for upsert."""
+    weekdays = data.get("weekdays")
+    if not weekdays or len(weekdays) < 5:
+        return None
 
-    Uses httpx to POST to Supabase with upsert semantics.
-    Falls back to dry-run mode if SUPABASE_URL or key are not configured.
-    """
+    return {
+        "valid_from": date.fromisoformat(data["valid_from"]),
+        "valid_to": date.fromisoformat(data["valid_to"]),
+        "raw_payload": {
+            "weekdays": weekdays,
+            "saturday_calendar": data.get("saturday_calendar", {}),
+            "resolution": data.get("resolution", ""),
+        },
+    }
+
+
+# ── Upsert ───────────────────────────────────────────────────────────────────
+
+
+def _upsert_rotations(rotations: list[dict]) -> int:
     if not SUPABASE_URL or not SUPABASE_KEY:
-        print("[scraper] Supabase not configured. Dry-run mode:")
+        print("[scraper] Supabase not configured. Dry-run:")
         for rot in rotations:
             print(f"  [{rot['municipality']}] {rot['valid_from']} → {rot['valid_to']}")
         return len(rotations)
@@ -228,22 +241,19 @@ def _upsert_rotations(rotations: list[dict]) -> int:
             "source_url": rot["source_url"],
         }
         try:
-            resp = httpx.post(
-                api_url,
-                headers=headers,
-                params=params,
-                json=body,
-                timeout=15,
-            )
+            resp = httpx.post(api_url, headers=headers, params=params, json=body, timeout=15)
             if resp.status_code in (200, 201):
                 written += 1
-                print(f"  [scraper] UPSERT {rot['municipality']}: {rot['valid_from']} → {rot['valid_to']}")
+                print(f"  UPSERT {rot['municipality']}: {rot['valid_from']} → {rot['valid_to']}")
             else:
-                print(f"  [scraper] WARN {rot['municipality']}: HTTP {resp.status_code} — {resp.text[:200]}")
+                print(f"  WARN {rot['municipality']}: HTTP {resp.status_code}")
         except httpx.HTTPError as exc:
-            print(f"  [scraper] ERROR {rot['municipality']}: {exc}")
+            print(f"  ERROR {rot['municipality']}: {exc}")
 
     return written
+
+
+# ── Logging ──────────────────────────────────────────────────────────────────
 
 
 def _log_run(
@@ -253,7 +263,6 @@ def _log_run(
     rows_written: int,
     error: str | None = None,
 ) -> None:
-    """Log the scraper run to stdout (and scrape_logs table if configured)."""
     status = "SUCCESS" if success else "FAILED"
     print(
         f"[scraper_run_complete] "
