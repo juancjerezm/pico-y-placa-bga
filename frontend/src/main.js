@@ -68,6 +68,17 @@ async function bootstrap() {
       onMunicipioChange(newMunicipio);
     });
   }
+
+  // 6. Wire date change → hero re-fetch
+  const dateInput = document.getElementById("date-input");
+  if (dateInput) {
+    dateInput.addEventListener("change", () => {
+      const newFecha = dateInput.value;
+      if (newFecha === state.fecha) return;
+      state.fecha = newFecha;
+      onDateChange(newFecha);
+    });
+  }
 }
 
 /**
@@ -123,6 +134,15 @@ async function onMunicipioChange(municipio) {
       handleSubmit({ placa, municipio, fecha: state.fecha });
     }
   }
+}
+
+/**
+ * Handle date input change — re-fetch hero.
+ * @param {string} fecha
+ */
+async function onDateChange(fecha) {
+  const heroData = await fetchHeroData(state.municipio, fecha);
+  updateHero({ ...heroData, municipio: state.municipio, fecha });
 }
 
 // Boot when DOM is ready
