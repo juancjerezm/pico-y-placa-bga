@@ -39,6 +39,11 @@ export function renderHero(data) {
   const weekday = SPANISH_WEEKDAYS[date.getDay()];
   const municipio = MUNICIPIO_NAMES[data.municipio] ?? data.municipio;
 
+  // Check if the displayed date is today
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const isToday = date.toDateString() === now.toDateString();
+
   labelEl.textContent = `${weekday} · ${municipio}`;
 
   if (!data.digits || data.digits.length === 0) {
@@ -46,18 +51,18 @@ export function renderHero(data) {
     digitEl.textContent = "—";
     digitEl.classList.remove("hero-digit--active");
     digitEl.classList.add("hero-digit--calm");
-    subEl.textContent = "Sin restricción hoy";
+    subEl.textContent = isToday ? "Sin restricción hoy" : "Sin restricción";
 
     animate(digitEl, { opacity: [0, 1], scale: [0.9, 1] }, { duration: 0.5 });
     return;
   }
 
-  // Show digits (e.g., "5" or "5·6")
+  // Show digits (e.g., "5 - 6")
   const digitText = data.digits.join(" - ");
   digitEl.textContent = digitText;
   digitEl.classList.remove("hero-digit--calm");
   digitEl.classList.add("hero-digit--active");
-  subEl.textContent = data.isRestricted ? "Restricción hoy" : "";
+  subEl.textContent = isToday ? "Restricción hoy" : "Restricción";
 
   // Flip animation — rotateX for airport-style flip
   animate(
