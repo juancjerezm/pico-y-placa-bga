@@ -93,11 +93,11 @@ _RE_SPANISH_MONTH_RANGE = re.compile(
 )
 _RE_WEEKDAY_DIGITS = re.compile(
     r"(?:"
-    r"lunes\s+(\d+)\s*(?:y|e|,)\s*(\d+)"
-    r"|martes\s+(\d+)\s*(?:y|e|,)\s*(\d+)"
-    r"|mi[eé]rcoles\s+(\d+)\s*(?:y|e|,)\s*(\d+)"
-    r"|jueves\s+(\d+)\s*(?:y|e|,)\s*(\d+)"
-    r"|viernes\s+(\d+)\s*(?:y|e|,)\s*(\d+)"
+    r"lunes\s*:?\s*(?:placas?\s*terminadas?\s*(?:en\s*)?)?(?:d[ií]gitos?\s*)?(\d+)\s*(?:y|e|,)\s*(\d+)"
+    r"|martes\s*:?\s*(?:placas?\s*terminadas?\s*(?:en\s*)?)?(?:d[ií]gitos?\s*)?(\d+)\s*(?:y|e|,)\s*(\d+)"
+    r"|mi[eé]rcoles\s*:?\s*(?:placas?\s*terminadas?\s*(?:en\s*)?)?(?:d[ií]gitos?\s*)?(\d+)\s*(?:y|e|,)\s*(\d+)"
+    r"|jueves\s*:?\s*(?:placas?\s*terminadas?\s*(?:en\s*)?)?(?:d[ií]gitos?\s*)?(\d+)\s*(?:y|e|,)\s*(\d+)"
+    r"|viernes\s*:?\s*(?:placas?\s*terminadas?\s*(?:en\s*)?)?(?:d[ií]gitos?\s*)?(\d+)\s*(?:y|e|,)\s*(\d+)"
     r")",
     re.IGNORECASE,
 )
@@ -206,7 +206,7 @@ def _extract_digits_line_by_line(text: str) -> dict[str, list[int]]:
     for wd in weekday_order:
         # Find the line/segment mentioning this weekday
         pattern = re.compile(
-            rf"{wd}\s+(\d+)\s*(?:y|e|,)\s*(\d+)", re.IGNORECASE
+            rf"{wd}\s*:?\s*(?:placas?\s*terminadas?\s*(?:en\s*)?)?(?:d[ií]gitos?\s*)?(\d+)\s*(?:y|e|,)\s*(\d+)", re.IGNORECASE
         )
         m = pattern.search(text)
         if m:

@@ -7,19 +7,20 @@ Exits 0 on success, non-zero on failure (no current rotation written).
 """
 
 import os
+import re
 import sys
 from datetime import date, datetime, timezone
+from urllib.parse import urljoin
 
 import httpx
+from bs4 import BeautifulSoup
 
 from scraper.scraper import (
     RotationData,
     extract_date_range,
     extract_rotation_digits,
     extract_saturday_calendar,
-    filter_article,
     has_current_rotation,
-    parse_articles_from_html,
 )
 
 # ── Configuration ────────────────────────────────────────────────────────────
@@ -111,37 +112,71 @@ def _fetch_html(url: str, timeout: int = 30) -> str:
 
 
 def _extract_rotation(html: str, source_url: str) -> RotationData | None:
-    """Parse HTML into a RotationData if a valid rotation is found."""
+    """Parse search page, follow article links, extract rotation from full articles."""
     if not html:
         return None
 
-    articles = parse_articles_from_html(html, source_url)
-    # Sort by date descending — prefer the most recent valid article
-    articles.sort(key=lambda a: a.get("date") or date.min, reverse=True)
+    soup = BeautifulSoup(html, "html.parser")
 
-    for article in articles:
-        if not filter_article(article):
+    # Step 1: Find article links on the search results page
+    article_urls: list[str] = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        text = a.get_text(strip=True).lower()
+        # Match links that reference pico y placa
+        if "pico" in href.lower() or "pico" in text:
+            full_url = urljoin(source_url, href)
+            if full_url not in article_urls:
+                article_urls.append(full_url)
+
+    if not article_urls:
+        print("[scraper] No article links found on search page.")
+        return None
+
+    print(f"[scraper] Found {len(article_urls)} candidate article links.")
+
+    # Step 2: Fetch and parse each article individually
+    for article_url in article_urls[:10]:  # Limit to first 10 to stay under budget
+        print(f"[scraper] Fetching article: {article_url[:100]}")
+        article_html = _fetch_html(article_url)
+        if not article_html:
             continue
 
-        digits = extract_rotation_digits(article["body"])
+        # Parse article text
+        article_soup = BeautifulSoup(article_html, "html.parser")
+        article_body = article_soup.find("article") or article_soup.find(class_=re.compile("content|entry|post|body", re.I)) or article_soup
+        article_text = article_body.get_text("\n", strip=True)
+
+        if "pico" not in article_text.lower():
+            continue
+
+        # Extract digits and date range from full article text
+        digits = extract_rotation_digits(article_text)
         if digits is None:
             continue
 
-        date_range = extract_date_range(article["body"])
+        date_range = extract_date_range(article_text)
         if date_range is None:
-            continue
+            # Try to find date in the article
+            date_match = re.search(r"(\d{1,2})\s+de\s+(\w+)\s+(?:al|hasta)\s+(\d{1,2})\s+de\s+(\w+)\s+(?:de\s+)?(\d{4})", article_text)
+            if not date_match:
+                continue
+            # This is a Spanish date format — handled by extract_date_range already
+            date_range = extract_date_range(article_text)
+            if date_range is None:
+                continue
 
-        saturday = extract_saturday_calendar(article["body"])
+        saturday = extract_saturday_calendar(article_text)
 
         raw_payload = {
             "weekdays": digits,
             "saturday_calendar": saturday if saturday else {},
-            "article_title": article["title"],
-            "article_url": article.get("url", ""),
+            "article_url": article_url,
         }
 
+        print(f"[scraper] Rotation found: {date_range[0]} → {date_range[1]}")
         return RotationData(
-            municipality="",  # filled per municipality during upsert
+            municipality="",
             valid_from=date_range[0],
             valid_to=date_range[1],
             raw_payload=raw_payload,
@@ -163,31 +198,52 @@ def _rotation_to_dict(rotation: RotationData, municipality: str) -> dict:
 
 
 def _upsert_rotations(rotations: list[dict]) -> int:
-    """Upsert rotation rows to Supabase.
+    """Upsert rotation rows to Supabase via REST API.
 
-    If Supabase is not configured (no SUPABASE_URL), prints the SQL
-    for manual execution and returns the number of rows that would be written.
+    Uses httpx to POST to Supabase with upsert semantics.
+    Falls back to dry-run mode if SUPABASE_URL or key are not configured.
     """
     if not SUPABASE_URL or not SUPABASE_KEY:
-        print("[scraper] Supabase not configured. Printing rotations for dry run:")
+        print("[scraper] Supabase not configured. Dry-run mode:")
         for rot in rotations:
             print(f"  [{rot['municipality']}] {rot['valid_from']} → {rot['valid_to']}")
         return len(rotations)
 
-    # Real Supabase upsert would go here. For v1, we output the SQL
-    # that can be executed manually or via a migration step.
-    # TODO: Implement Supabase REST API upsert using httpx + SUPABASE_URL/KEY.
-    print("[scraper] WARNING: Supabase upsert not yet implemented (v1 placeholder).")
-    print("[scraper] Rotation data parsed successfully — manual insertion required.")
+    api_url = f"{SUPABASE_URL}/rest/v1/rotations"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates",
+    }
+    params = {"on_conflict": "municipality,valid_from"}
+
+    written = 0
     for rot in rotations:
-        print(
-            f"  INSERT INTO rotations (municipality, valid_from, valid_to, "
-            f"raw_payload, source_url) VALUES "
-            f"('{rot['municipality']}', '{rot['valid_from']}', "
-            f"'{rot['valid_to']}', '{rot['raw_payload']}', '{rot['source_url']}') "
-            f"ON CONFLICT DO NOTHING;"
-        )
-    return len(rotations)
+        body = {
+            "municipality": rot["municipality"],
+            "valid_from": rot["valid_from"].isoformat(),
+            "valid_to": rot["valid_to"].isoformat(),
+            "raw_payload": rot["raw_payload"],
+            "source_url": rot["source_url"],
+        }
+        try:
+            resp = httpx.post(
+                api_url,
+                headers=headers,
+                params=params,
+                json=body,
+                timeout=15,
+            )
+            if resp.status_code in (200, 201):
+                written += 1
+                print(f"  [scraper] UPSERT {rot['municipality']}: {rot['valid_from']} → {rot['valid_to']}")
+            else:
+                print(f"  [scraper] WARN {rot['municipality']}: HTTP {resp.status_code} — {resp.text[:200]}")
+        except httpx.HTTPError as exc:
+            print(f"  [scraper] ERROR {rot['municipality']}: {exc}")
+
+    return written
 
 
 def _log_run(
