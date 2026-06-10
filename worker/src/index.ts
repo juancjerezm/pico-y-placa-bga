@@ -278,6 +278,12 @@ export async function handleRestriccion(
 
   const payload = rotation.raw_payload as RotationPayload;
 
+  // --- Rolling cycle: calculate correct digits for this date ---
+  let weekdays = payload.weekdays;
+  if (payload.cycle_anchor && payload.cycle_pairs) {
+    weekdays = getWeekdaysForDate(payload.cycle_anchor, payload.cycle_pairs, dateObj);
+  }
+
   // --- Saturday: consult per-week calendar ---
   if (dayOfWeek === 6) {
     const isoWeek = getISOWeek(dateObj);
@@ -315,7 +321,6 @@ export async function handleRestriccion(
 
   // --- Weekday: check rotation digits ---
   const weekdayKey = SPANISH_WEEKDAYS[dayOfWeek]!;
-  const weekdays = payload.weekdays ?? {};
   let digits = weekdays[weekdayKey];
 
   // Fallback: try unaccented key
@@ -428,6 +433,45 @@ function resolveDayRule(fecha: string): "weekday" | "saturday" | "festivo" {
   if (dow === 0) return "festivo";
   if (dow === 6) return "saturday";
   return "weekday";
+}
+
+/**
+ * Calculate the correct weekday→digits map for a given date based on a rolling cycle.
+ *
+ * The cycle rotates weekly: each Monday the digit pairs shift by one position.
+ * `cycle_pairs` has 5 pairs ordered [lunes, martes, miércoles, jueves, viernes].
+ * Each week, the pairs rotate: week 0 → index 0, week 1 → index 1, etc.
+ * After 5 weeks, the cycle repeats.
+ */
+function getWeekdaysForDate(
+  cycleAnchor: string,
+  cyclePairs: string[][],
+  targetDate: Date,
+): Record<string, number[]> {
+  const anchorDate = new Date(cycleAnchor + "T00:00:00Z");
+  const diffMs = targetDate.getTime() - anchorDate.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  // Find the Monday of the target week
+  const dayOfWeek = targetDate.getUTCDay(); // 0=Sun
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const targetMonday = new Date(targetDate);
+  targetMonday.setUTCDate(targetDate.getUTCDate() + mondayOffset);
+  // Find the Monday of the anchor week
+  const anchorMonday = new Date(anchorDate);
+  const anchorDow = anchorDate.getUTCDay();
+  const anchorMondayOffset = anchorDow === 0 ? -6 : 1 - anchorDow;
+  anchorMonday.setUTCDate(anchorDate.getUTCDate() + anchorMondayOffset);
+  // Weeks since anchor Monday
+  const weekDiff = Math.floor((targetMonday.getTime() - anchorMonday.getTime()) / (7 * 86400000));
+  const shift = ((weekDiff % 5) + 5) % 5; // Non-negative modulo
+
+  const weekdays: Record<string, number[]> = {};
+  const names = ["lunes", "martes", "miércoles", "jueves", "viernes"];
+  for (let i = 0; i < 5; i++) {
+    const pairIndex = (i + shift) % 5;
+    weekdays[names[i]!] = cyclePairs[pairIndex]!.map(Number);
+  }
+  return weekdays;
 }
 
 /** Return a JSON 200 response with Cache-Control. */

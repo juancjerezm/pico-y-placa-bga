@@ -45,8 +45,12 @@ export interface RotationRow {
 export interface RotationPayload {
   weekdays: Record<string, number[]>;
   saturday_calendar: Record<string, number[]>;
-  article_title: string;
-  article_url: string;
+  article_title?: string;
+  article_url?: string;
+  /** Rolling cycle anchor date (YYYY-MM-DD). */
+  cycle_anchor?: string;
+  /** Base cycle pairs: 5 pairs of digits that rotate weekly. */
+  cycle_pairs?: string[][];
 }
 
 /** Raw exception_override row from the database. */
