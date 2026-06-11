@@ -146,7 +146,7 @@ function updateCountdown() {
     const elapsedRestriction = currentMins - startMins;
     const pct = Math.round((elapsedRestriction / totalMins) * 100);
 
-    // Dynamic color: red → amber → green
+    // Dynamic color: 6-stop rainbow
     const color = progressColor(pct);
     timerEl.style.color = color;
     timerEl.style.textShadow = `0 0 12px ${color}66`;
