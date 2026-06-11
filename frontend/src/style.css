@@ -88,6 +88,15 @@ body {
   width: 100%;
 }
 
+.hero-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 0.5rem;
+}
+
 .hero-label {
   display: block;
   font-size: 0.875rem;
@@ -126,9 +135,11 @@ body {
 
 .hero-sub {
   display: block;
-  font-size: 0.875rem;
-  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
   margin-top: 0.5rem;
+  opacity: 0.85;
 }
 
 .hero-timer {
