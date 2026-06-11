@@ -32,17 +32,12 @@ const RESTRICTION_HOURS = {
 
 let countdownInterval = null;
 
-/** Red → Amber → Green color stops for the gradient transition. */
-const COLOR_RED = [239, 68, 68];    // #ef4444
-const COLOR_AMBER = [245, 158, 11]; // #f59e0b
-const COLOR_GREEN = [34, 197, 94];  // #22c55e
+/** Red → Green direct gradient for the countdown transition. */
+const COLOR_RED = [239, 68, 68];   // #ef4444
+const COLOR_GREEN = [34, 197, 94]; // #22c55e
 
 /**
  * Interpolate between two RGB colors.
- * @param {number[]} c1 - [r, g, b]
- * @param {number[]} c2 - [r, g, b]
- * @param {number} t - 0..1
- * @returns {string} hex color
  */
 function lerpColor(c1, c2, t) {
   const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
@@ -52,16 +47,11 @@ function lerpColor(c1, c2, t) {
 }
 
 /**
- * Get the dynamic color based on restriction progress (0% = red, 100% = green).
- * @param {number} pct - progress 0..100
- * @returns {string} hex color
+ * Direct red→green color based on restriction progress.
+ * 0% = red puro, 100% = verde puro.
  */
 function progressColor(pct) {
-  const t = Math.min(pct / 100, 1);
-  if (t <= 0.5) {
-    return lerpColor(COLOR_RED, COLOR_AMBER, t * 2);
-  }
-  return lerpColor(COLOR_AMBER, COLOR_GREEN, (t - 0.5) * 2);
+  return lerpColor(COLOR_RED, COLOR_GREEN, Math.min(pct / 100, 1));
 }
 
 /**
@@ -70,7 +60,7 @@ function progressColor(pct) {
 function setBarGlow(barEl, pct) {
   const color = progressColor(pct);
   barEl.style.background = color;
-  barEl.style.boxShadow = `0 0 10px ${color}66, 0 0 24px ${color}33`;
+  barEl.style.boxShadow = `0 0 12px ${color}99, 0 0 28px ${color}44`;
 }
 
 /**
