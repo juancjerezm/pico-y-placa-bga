@@ -32,9 +32,10 @@ const RESTRICTION_HOURS = {
 
 let countdownInterval = null;
 
-/** Red → Green direct gradient for the countdown transition. */
-const COLOR_RED = [239, 68, 68];   // #ef4444
-const COLOR_GREEN = [34, 197, 94]; // #22c55e
+/** Red → Amber → Green color stops for the gradient transition. */
+const COLOR_RED = [239, 68, 68];    // #ef4444
+const COLOR_AMBER = [245, 158, 11]; // #f59e0b
+const COLOR_GREEN = [34, 197, 94];  // #22c55e
 
 /**
  * Interpolate between two RGB colors.
@@ -47,11 +48,15 @@ function lerpColor(c1, c2, t) {
 }
 
 /**
- * Direct red→green color based on restriction progress.
- * 0% = red puro, 100% = verde puro.
+ * Red → amber (first 33%) → green (last 67%).
+ * El verde aparece más temprano, no solo en la segunda mitad.
  */
 function progressColor(pct) {
-  return lerpColor(COLOR_RED, COLOR_GREEN, Math.min(pct / 100, 1));
+  const t = Math.min(pct / 100, 1);
+  if (t <= 0.33) {
+    return lerpColor(COLOR_RED, COLOR_AMBER, t / 0.33);
+  }
+  return lerpColor(COLOR_AMBER, COLOR_GREEN, (t - 0.33) / 0.67);
 }
 
 /**
