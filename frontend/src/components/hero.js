@@ -41,9 +41,9 @@ const COLOR_STOPS = [
   [249, 115, 22],  // 17%  — orange #f97316
   [245, 158, 11],  // 33%  — amber  #f59e0b
   [234, 179, 8],   // 50%  — yellow #eab308
-  [228, 210, 25],  // 67%  — lima bien amarillito
-  [34, 197, 94],   // 83%  — green  #22c55e
-  [34, 197, 94],   // 100% — green  #22c55e
+  [228, 210, 25],  // 67%  — lima amarillito
+  [242, 255, 0],   // 83%  — amarillo neón #F2FF00
+  [34, 197, 94],   // 100% — verde #22c55e
 ];
 
 /**
