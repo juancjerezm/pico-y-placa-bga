@@ -147,6 +147,10 @@ body {
   color: var(--red-400, #ef4444);
 }
 
+.hero-timer--gradient {
+  transition: color 0.6s ease, text-shadow 0.6s ease;
+}
+
 .hero-timer--ended {
   color: var(--green-400, #22c55e);
 }
@@ -165,11 +169,15 @@ body {
   height: 100%;
   border-radius: 2px;
   background: var(--amber-400, #f59e0b);
-  transition: width 1s linear;
+  transition: width 1s linear, background 0.6s ease, box-shadow 0.6s ease;
 }
 
 .hero-progress-bar--active {
   background: var(--red-400, #ef4444);
+}
+
+.hero-progress-bar--gradient {
+  /* Color set dynamically via JS inline style */
 }
 
 .hero-progress-bar--ended {

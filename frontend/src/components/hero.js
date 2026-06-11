@@ -32,6 +32,47 @@ const RESTRICTION_HOURS = {
 
 let countdownInterval = null;
 
+/** Red → Amber → Green color stops for the gradient transition. */
+const COLOR_RED = [239, 68, 68];    // #ef4444
+const COLOR_AMBER = [245, 158, 11]; // #f59e0b
+const COLOR_GREEN = [34, 197, 94];  // #22c55e
+
+/**
+ * Interpolate between two RGB colors.
+ * @param {number[]} c1 - [r, g, b]
+ * @param {number[]} c2 - [r, g, b]
+ * @param {number} t - 0..1
+ * @returns {string} hex color
+ */
+function lerpColor(c1, c2, t) {
+  const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+  const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+  const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+/**
+ * Get the dynamic color based on restriction progress (0% = red, 100% = green).
+ * @param {number} pct - progress 0..100
+ * @returns {string} hex color
+ */
+function progressColor(pct) {
+  const t = Math.min(pct / 100, 1);
+  if (t <= 0.5) {
+    return lerpColor(COLOR_RED, COLOR_AMBER, t * 2);
+  }
+  return lerpColor(COLOR_AMBER, COLOR_GREEN, (t - 0.5) * 2);
+}
+
+/**
+ * Apply neon glow and color to the progress bar.
+ */
+function setBarGlow(barEl, pct) {
+  const color = progressColor(pct);
+  barEl.style.background = color;
+  barEl.style.boxShadow = `0 0 10px ${color}66, 0 0 24px ${color}33`;
+}
+
 /**
  * Start the live countdown timer (updates every second for smooth progress).
  */
@@ -76,6 +117,8 @@ function updateCountdown() {
     const s = secsLeft % 60;
     timerEl.textContent = `Empieza en ${h}h ${m}m ${s.toString().padStart(2, "0")}s`;
     timerEl.className = "hero-timer hero-timer--upcoming";
+    timerEl.style.color = "";
+    timerEl.style.textShadow = "";
 
     // Progress: how close to start (reverse)
     const totalWaitMins = startMins;
@@ -83,7 +126,9 @@ function updateCountdown() {
     const pct = Math.min(100, Math.round((elapsedWait / totalWaitMins) * 100));
     if (barEl) {
       barEl.style.width = `${pct}%`;
-      barEl.className = "hero-progress-bar hero-progress-bar--active";
+      barEl.style.background = "#f59e0b";
+      barEl.style.boxShadow = "0 0 10px #f59e0b66, 0 0 24px #f59e0b33";
+      barEl.className = "hero-progress-bar hero-progress-bar--gradient";
     }
   } else if (currentMins < hours.end * 60) {
     // During restriction
@@ -93,23 +138,34 @@ function updateCountdown() {
     const s = secsLeft % 60;
     const endLabel = `${hours.end}:00`;
     timerEl.textContent = `Faltan ${h}h ${m}m ${s.toString().padStart(2, "0")}s (hasta las ${endLabel})`;
-    timerEl.className = "hero-timer hero-timer--active";
 
     // Progress: how much of restriction has elapsed
     const elapsedRestriction = currentMins - startMins;
     const pct = Math.round((elapsedRestriction / totalMins) * 100);
+
+    // Dynamic color: red → amber → green
+    const color = progressColor(pct);
+    timerEl.style.color = color;
+    timerEl.style.textShadow = `0 0 12px ${color}66`;
+    timerEl.className = "hero-timer hero-timer--gradient";
+
     if (barEl) {
       barEl.style.width = `${pct}%`;
-      barEl.className = "hero-progress-bar hero-progress-bar--active";
+      setBarGlow(barEl, pct);
+      barEl.className = "hero-progress-bar hero-progress-bar--gradient";
     }
   } else {
     // Restriction ended
     timerEl.textContent = "Terminó por hoy";
     timerEl.className = "hero-timer hero-timer--ended";
+    timerEl.style.color = "";
+    timerEl.style.textShadow = "";
 
     if (barEl) {
       barEl.style.width = "100%";
-      barEl.className = "hero-progress-bar hero-progress-bar--ended";
+      barEl.style.background = "#22c55e";
+      barEl.style.boxShadow = "0 0 10px #22c55e66, 0 0 24px #22c55e33";
+      barEl.className = "hero-progress-bar hero-progress-bar--gradient";
     }
   }
 }
