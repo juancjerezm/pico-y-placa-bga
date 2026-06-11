@@ -32,10 +32,19 @@ const RESTRICTION_HOURS = {
 
 let countdownInterval = null;
 
-/** Red → Amber → Green color stops for the gradient transition. */
-const COLOR_RED = [239, 68, 68];    // #ef4444
-const COLOR_AMBER = [245, 158, 11]; // #f59e0b
-const COLOR_GREEN = [34, 197, 94];  // #22c55e
+/**
+ * Red → Orange → Amber → Yellow → Lime → Green (6 stops).
+ * Cada color cubre ~16.6% del progreso total.
+ */
+const COLOR_STOPS = [
+  [239, 68, 68],   // 0%   — red    #ef4444
+  [249, 115, 22],  // 17%  — orange #f97316
+  [245, 158, 11],  // 33%  — amber  #f59e0b
+  [234, 179, 8],   // 50%  — yellow #eab308
+  [163, 230, 53],  // 67%  — lime   #a3e635
+  [34, 197, 94],   // 83%  — green  #22c55e
+  [34, 197, 94],   // 100% — green  #22c55e
+];
 
 /**
  * Interpolate between two RGB colors.
@@ -48,15 +57,14 @@ function lerpColor(c1, c2, t) {
 }
 
 /**
- * Red → amber (first 33%) → green (last 67%).
- * El verde aparece más temprano, no solo en la segunda mitad.
+ * 6-color rainbow gradient across the restriction window.
  */
 function progressColor(pct) {
   const t = Math.min(pct / 100, 1);
-  if (t <= 0.33) {
-    return lerpColor(COLOR_RED, COLOR_AMBER, t / 0.33);
-  }
-  return lerpColor(COLOR_AMBER, COLOR_GREEN, (t - 0.33) / 0.67);
+  const segments = COLOR_STOPS.length - 1; // 6 segments
+  const seg = Math.min(Math.floor(t * segments), segments - 1);
+  const local = (t * segments) - seg;
+  return lerpColor(COLOR_STOPS[seg], COLOR_STOPS[seg + 1], local);
 }
 
 /**
