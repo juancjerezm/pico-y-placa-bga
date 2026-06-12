@@ -2,7 +2,8 @@
 
 > **URL**: https://pico-y-placa-bga.vercel.app  
 > **API**: https://pico-y-placa-api.juanchob612.workers.dev  
-> **Repo**: https://github.com/juancjerezm/pico-y-placa-bga
+> **Repo**: https://github.com/juancjerezm/pico-y-placa-bga  
+> **Última actualización**: 12 de junio de 2026
 
 ---
 
@@ -20,7 +21,7 @@ Frontend (Vercel) → Worker API (Cloudflare) → Supabase (PostgreSQL)
 | Frontend | Vite + vanilla JS + Motion One | Vercel | Interfaz de usuario |
 | API | TypeScript + postgres.js | Cloudflare Workers | Consultas read-only |
 | Base de datos | PostgreSQL | Supabase | Rotaciones, excepciones, festivos |
-| Scraper | Python + BeautifulSoup | GitHub Actions | Extracción de datos (manual asistido) |
+| Datos | Manual (SQL) + propuesta de reemplazo | — | Alimentación trimestral (ver PROPUESTAS.md) |
 
 ---
 
@@ -84,6 +85,8 @@ Cada 3 meses la DTB publica una nueva resolución que **corre los dígitos un pa
 
 ## 5. Cómo actualizar los datos (cada 3 meses)
 
+> 📘 **Guía detallada paso a paso**: ver [`MANTENIMIENTO.md`](./MANTENIMIENTO.md)
+
 ```sql
 -- Ejemplo para Q3 2026 (hipotético)
 DELETE FROM rotations;
@@ -124,29 +127,61 @@ VALUES
 
 ---
 
-## 8. Repositorio y ramas
+## 8. Optimizaciones de rendimiento (Jun 2026)
+
+Para resolver la lentitud en la renderización de los dígitos del hero:
+
+| Optimización | Archivo | Impacto |
+|-------------|---------|---------|
+| Cache del schedule trimestral en localStorage | `api.js` | Visitas repetidas: de ~600ms a ~0ms |
+| Cálculo client-side de dígitos (sin API) | `api.js` | Los dígitos se computan con la fecha y el payload cacheado |
+| Placeholder "···" con CSS pulse | `index.html` + `style.css` | El hero nunca está vacío mientras carga |
+| Texto visible instantáneo, animación decorativa | `hero.js` | El número aparece en el frame 0, animación encima |
+
+**Flujo optimizado**:
+```
+0ms    → "···" pulsando (placeholder nativo)
+~5ms   → Cache hit: dígitos calculados en JS (0ms network)  
+~15ms  → "5 - 6" visible + flip animation decorativa
+```
+(Antes: ~1150ms hasta ver los dígitos)
+
+---
+
+## 9. Documentación adicional
+
+| Documento | Contenido |
+|-----------|-----------|
+| [`MANTENIMIENTO.md`](./MANTENIMIENTO.md) | Guía completa de arquitectura y paso a paso para actualizar datos cada trimestre |
+| [`PROPUESTAS.md`](./PROPUESTAS.md) | Análisis de 3 opciones para reemplazar el scraper (que no funciona por anti-bot). Para estudio y decisión. |
+
+---
+
+## 10. Repositorio y ramas
 
 - **Rama principal**: `main`
 - **SDD**: `openspec/specs/` (4 specs), `openspec/changes/archive/` (artefactos archivados)
-- **Commits**: 9 commits con conventional commits
+- **Commits**: 11 commits con conventional commits
 
 ---
 
-## 9. Mantenimiento
+## 11. Mantenimiento
 
 | Frecuencia | Acción |
 |------------|--------|
-| **Cada 3 meses** | Actualizar rotación en Supabase (ver sección 5) |
-| **Semanal** | GitHub Actions verifica datos stale |
+| **Cada 3 meses** | Actualizar rotación en Supabase — ver [`MANTENIMIENTO.md`](./MANTENIMIENTO.md) |
+| **Cuando se publique** | Agregar exception_overrides si hay suspensiones (Semana Santa, etc.) |
 | **Cuando falle** | Revisar logs en Cloudflare Dashboard / Supabase |
+
+> ⚠️ **El scraper automático NO funciona** (bloqueado por anti-bot en las fuentes). Los datos se ingresan manualmente vía SQL en Supabase. Se está evaluando un reemplazo — ver [`PROPUESTAS.md`](./PROPUESTAS.md).
 
 ---
 
-## 10. Stack técnico completo
+## 12. Stack técnico completo
 
-- **Frontend**: HTML5, CSS3, vanilla JavaScript, Vite 6, Motion One, Outfit font
-- **API**: TypeScript, Cloudflare Workers, postgres.js, wrangler 4
+- **Frontend**: HTML5, CSS3, vanilla JavaScript, Vite 6, Motion One 12, Outfit font, localStorage caching
+- **API**: TypeScript, Cloudflare Workers, postgres.js 3, wrangler 4
 - **Base de datos**: PostgreSQL 15 (Supabase), pgBouncer, Row Level Security
-- **Scraper**: Python 3.13, BeautifulSoup 4, httpx, pytest, ruff, mypy
+- **Python tools**: plate_parser (validación de placas), pytest, ruff, mypy
 - **CI/CD**: GitHub Actions, Vercel (auto-deploy desde Git), Cloudflare (wrangler deploy)
 - **Testing**: pytest + pytest-cov (Python), vitest + jsdom (frontend), vitest (Worker)
