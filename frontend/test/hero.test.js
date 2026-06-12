@@ -14,7 +14,7 @@ describe("renderHero", () => {
     });
 
     const digitEl = document.getElementById("hero-digit");
-    expect(digitEl.textContent).toBe("5·6");
+    expect(digitEl.textContent).toBe("5 - 6");
     expect(digitEl.classList.contains("hero-digit--active")).toBe(true);
     expect(digitEl.classList.contains("hero-digit--calm")).toBe(false);
   });
@@ -60,11 +60,18 @@ describe("renderHero", () => {
   });
 
   it("shows sub-text for active restriction", () => {
+    // Use today's date so the "hoy" variant is selected
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
     renderHero({
       digits: [7, 8],
       isRestricted: true,
       municipio: "bucaramanga",
-      fecha: "2026-06-10",
+      fecha: todayStr,
     });
 
     const subEl = document.getElementById("hero-sub");

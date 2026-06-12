@@ -175,6 +175,10 @@ function updateCountdown() {
 
 /**
  * Render the hero with current data.
+ *
+ * Text is set INSTANTLY (no opacity fade). The rotateX flip animation
+ * is purely decorative — the number is visible from frame zero.
+ *
  * @param {{digits: number[]|null, isRestricted: boolean, municipio: string, fecha: string}} data
  */
 export function renderHero(data) {
@@ -196,30 +200,33 @@ export function renderHero(data) {
 
   labelEl.textContent = `${weekday} · ${municipio}`;
 
+  // Always clear the loading placeholder class
+  digitEl.classList.remove("hero-digit--loading");
+
   if (!data.digits || data.digits.length === 0) {
-    // Calm "no restriction" state
+    // Calm "no restriction" state — text instant, subtle scale-in
     digitEl.textContent = "—";
     digitEl.classList.remove("hero-digit--active");
     digitEl.classList.add("hero-digit--calm");
     subEl.textContent = isToday ? "Sin restricción hoy" : "Sin restricción";
 
-    animate(digitEl, { opacity: [0, 1], scale: [0.9, 1] }, { duration: 0.5 });
+    animate(digitEl, { scale: [0.92, 1] }, { duration: 0.4, easing: "ease-out" });
     return;
   }
 
-  // Show digits (e.g., "5 - 6")
+  // Show digits instantly (e.g., "5 - 6")
   const digitText = data.digits.join(" - ");
   digitEl.textContent = digitText;
   digitEl.classList.remove("hero-digit--calm");
   digitEl.classList.add("hero-digit--active");
   subEl.textContent = isToday ? "Restricción hoy" : "Restricción";
 
-  // Flip animation — rotateX for airport-style flip
+  // Flip animation — decorative only, text is already visible
   animate(
     digitEl,
-    { rotateX: [90, 0], opacity: [0, 1] },
+    { rotateX: [90, 0] },
     {
-      duration: 0.55,
+      duration: 0.45,
       easing: [0.34, 1.56, 0.64, 1], // overshoot for bounce feel
     }
   );

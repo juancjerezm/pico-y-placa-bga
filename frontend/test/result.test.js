@@ -20,7 +20,7 @@ describe("showResult", () => {
     expect(section.classList.contains("result--hidden")).toBe(false);
     expect(statusEl.textContent).toBe("Restringido");
     expect(statusEl.classList.contains("result-status--restricted")).toBe(true);
-    expect(messageEl.textContent).toContain("No podés circular");
+    expect(messageEl.textContent).toContain("no podés circular");
   });
 
   it("renders unrestricted state with green status", () => {

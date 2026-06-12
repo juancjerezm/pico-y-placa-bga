@@ -123,6 +123,17 @@ body {
   transform-origin: center center;
 }
 
+/* Placeholder pulse while data loads ("···") */
+.hero-digit--loading {
+  color: var(--text-muted);
+  animation: digit-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes digit-pulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.55; }
+}
+
 .hero-digit--active {
   color: var(--accent);
   text-shadow: 0 0 60px var(--accent-glow), 0 0 120px var(--accent-glow);

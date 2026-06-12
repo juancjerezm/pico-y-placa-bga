@@ -60,36 +60,133 @@ export async function fetchSchedule(municipio) {
   return res.json();
 }
 
+const SCHEDULE_CACHE_KEY = "pyp_schedule_cache";
+const SCHEDULE_CACHE_TTL = 3600_000; // 1 hora (el schedule trimestral no cambia)
+
+const WEEKDAYS = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+];
+
+const UNACCENT_FALLBACK = {
+  miercoles: "miércoles",
+  sabado: "sábado",
+};
+
+/**
+ * Try to load a cached schedule from localStorage.
+ * @param {string} municipio
+ * @returns {{ schedule: object, fromCache: boolean }|null}
+ */
+function loadCachedSchedule(municipio) {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_CACHE_KEY);
+    if (!raw) return null;
+    const cache = JSON.parse(raw);
+    if (cache.municipio !== municipio) return null;
+    if (Date.now() - cache.ts > SCHEDULE_CACHE_TTL) return null;
+    return { schedule: cache.schedule, fromCache: true };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save a schedule to localStorage.
+ * @param {string} municipio
+ * @param {object} schedule — raw_payload shape from /v1/schedule current
+ */
+function saveCachedSchedule(municipio, schedule) {
+  try {
+    localStorage.setItem(
+      SCHEDULE_CACHE_KEY,
+      JSON.stringify({ municipio, schedule, ts: Date.now() }),
+    );
+  } catch {
+    // localStorage full — silently ignore
+  }
+}
+
+/**
+ * Calculate restricted digits for a given date from a raw_payload.
+ * Pure function — no network, no side effects.
+ * @param {object} payload — raw_payload with .weekdays and optional .saturday_calendar
+ * @param {Date} date
+ * @returns {number[]|null}
+ */
+function calcDigitsFromPayload(payload, date) {
+  const dayIndex = date.getDay(); // 0=Sun
+  if (dayIndex === 0) return null;
+
+  const weekdayName = WEEKDAYS[dayIndex];
+  const weekdays = payload.weekdays ?? {};
+
+  let digits = weekdays[weekdayName];
+
+  // Fallback: unaccented keys (scraper may produce either form)
+  if (!digits) {
+    const fallback = UNACCENT_FALLBACK[weekdayName];
+    if (fallback) digits = weekdays[fallback];
+  }
+
+  if (!digits || digits.length === 0) return null;
+  return digits;
+}
+
 /**
  * Fetch hero data: today's restricted digits and whether today is restricted.
- * Uses a two-call strategy: schedule for digits + a dummy restriccion to detect
- * festivos / overrides that make today restriction-free.
+ *
+ * Strategy:
+ *   1. Try cached schedule → compute digits client-side (0 ms)
+ *   2. If no cache, fetch schedule + dummy restriccion in parallel (one round-trip)
+ *   3. Dummy restriccion detects festivos / overrides that override the rotation
  *
  * @param {string} municipio
- * @param {string} fecha - YYYY-MM-DD (today)
+ * @param {string} fecha - YYYY-MM-DD
  * @returns {Promise<{digits: number[]|null, isRestricted: boolean}>}
  */
 export async function fetchHeroData(municipio, fecha) {
-  const WEEKDAYS = [
-    "domingo",
-    "lunes",
-    "martes",
-    "miércoles",
-    "jueves",
-    "viernes",
-    "sábado",
-  ];
+  const date = new Date(fecha + "T12:00:00");
+
+  // Sunday → always calm
+  if (date.getDay() === 0) {
+    return { digits: null, isRestricted: false };
+  }
 
   try {
+    // 1. Try cached schedule
+    const cached = loadCachedSchedule(municipio);
+
+    if (cached) {
+      const digits = calcDigitsFromPayload(cached.schedule, date);
+
+      // Quick festivo check — still need the API for this
+      const dummy = await fetchRestriccion(municipio, fecha, "ABC123");
+
+      if (dummy && dummy.rule === "festivo") {
+        return { digits: null, isRestricted: false };
+      }
+
+      return {
+        digits,
+        isRestricted: !!digits && digits.length > 0,
+      };
+    }
+
+    // 2. No cache — fetch schedule + dummy in parallel
     const [schedule, dummy] = await Promise.all([
       fetchSchedule(municipio),
       fetchRestriccion(municipio, fecha, "ABC123"),
     ]);
 
-    // If today is Sunday → calm state
-    const todayIndex = new Date(fecha + "T12:00:00").getDay();
-    if (todayIndex === 0) {
-      return { digits: null, isRestricted: false };
+    // Cache the schedule for next time
+    if (schedule.current) {
+      saveCachedSchedule(municipio, schedule.current.raw_payload);
     }
 
     // If the dummy call says today is festivo → calm state
@@ -102,15 +199,7 @@ export async function fetchHeroData(municipio, fecha) {
       return { digits: null, isRestricted: false };
     }
 
-    const weekdayName = WEEKDAYS[todayIndex];
-    const weekdays = schedule.current.raw_payload?.weekdays ?? {};
-
-    // Handle both accented and unaccented keys
-    const digits =
-      weekdays[weekdayName] ??
-      weekdays[weekdayName.replace("é", "e")] ??
-      weekdays[weekdayName.replace("á", "a")] ??
-      null;
+    const digits = calcDigitsFromPayload(schedule.current.raw_payload, date);
 
     if (!digits || digits.length === 0) {
       return { digits: null, isRestricted: false };
