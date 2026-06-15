@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#11182b"/>
+      <stop offset="100%" stop-color="#0a0f1f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <text x="600" y="220" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="48" fill="#94a3b8" letter-spacing="12">PICO Y PLACA</text>
+  <text x="600" y="400" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="120" fill="#f59e0b">BUCARAMANGA</text>
+  <text x="600" y="520" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="600" font-size="28" fill="#64748b">Consultá si tu carro tiene restricción hoy</text>
+</svg>
