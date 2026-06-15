@@ -113,6 +113,20 @@ function saveCachedSchedule(municipio, schedule) {
 }
 
 /**
+ * Calculate ISO 8601 week number for a date.
+ * Mirrors the Worker's getISOWeek to keep saturday_calendar keys consistent.
+ * @param {Date} d
+ * @returns {number}
+ */
+function getISOWeek(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+/**
  * Calculate restricted digits for a given date from a raw_payload.
  * Pure function — no network, no side effects.
  * @param {object} payload — raw_payload with .weekdays and optional .saturday_calendar
@@ -122,6 +136,14 @@ function saveCachedSchedule(municipio, schedule) {
 function calcDigitsFromPayload(payload, date) {
   const dayIndex = date.getDay(); // 0=Sun
   if (dayIndex === 0) return null;
+
+  // Saturday: use saturday_calendar keyed by ISO week number
+  if (dayIndex === 6) {
+    const isoWeek = getISOWeek(date);
+    const saturdayCalendar = payload.saturday_calendar ?? {};
+    const digits = saturdayCalendar[String(isoWeek)];
+    return digits && digits.length > 0 ? digits : null;
+  }
 
   const weekdayName = WEEKDAYS[dayIndex];
   const weekdays = payload.weekdays ?? {};

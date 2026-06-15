@@ -244,10 +244,10 @@ export function renderHero(data) {
 
   if (isToday) startCountdown();
 
-  // Flip animation — decorative only, text is already visible
+  // Flip animation + fade-in (opacity restored after updateHero crossfade)
   animate(
     digitEl,
-    { rotateX: [90, 0] },
+    { opacity: [0, 1], rotateX: [90, 0] },
     {
       duration: 0.45,
       easing: [0.34, 1.56, 0.64, 1], // overshoot for bounce feel
