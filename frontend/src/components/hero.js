@@ -95,6 +95,20 @@ export function stopCountdown() {
 }
 
 /**
+ * Show green glow progress bar for calm (no restriction) state.
+ */
+function showCalmBar() {
+  const progressEl = document.getElementById("hero-progress");
+  const barEl = document.getElementById("hero-progress-bar");
+  if (!progressEl || !barEl) return;
+  progressEl.style.display = "block";
+  barEl.style.width = "100%";
+  barEl.style.background = "#22c55e";
+  barEl.style.boxShadow = "0 0 10px #22c55e66, 0 0 24px #22c55e33";
+  barEl.className = "hero-progress-bar";
+}
+
+/**
  * Start the live countdown timer (updates every second for smooth progress).
  */
 export function startCountdown() {
@@ -222,13 +236,16 @@ export function renderHero(data) {
   digitEl.classList.remove("hero-digit--loading");
 
   if (!data.digits || data.digits.length === 0) {
-    // Calm "no restriction" state — text instant, subtle scale-in
+    // Calm "no restriction" state — text instant, subtle scale-in, green glow bar
     isActive = false;
     stopCountdown();
     digitEl.textContent = "—";
     digitEl.classList.remove("hero-digit--active");
     digitEl.classList.add("hero-digit--calm");
     subEl.textContent = isToday ? "Sin restricción hoy" : "Sin restricción";
+
+    // Green glow bar (same green as countdown end)
+    showCalmBar();
 
     animate(digitEl, { scale: [0.92, 1] }, { duration: 0.4, easing: "ease-out" });
     return;
