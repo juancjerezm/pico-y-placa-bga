@@ -338,14 +338,43 @@ python -m scraper --source-url "https://transitobucaramanga.gov.co/dtb/" --munic
 
 ---
 
-## 6. Agregar festivos (raro, solo si cambia la ley)
+## 6. Gestión de festivos — revisión anual obligatoria
 
-Los festivos colombianos están precargados en `holidays`. Si el gobierno agrega uno nuevo:
+Los festivos colombianos **no vienen precargados** en la base de datos. Deben insertarse explícitamente mediante la migración de seed. La tabla `holidays` solo se puebla cuando ejecutás la migración `0004_seed_holidays_2026.sql` contra Supabase.
 
+### Dónde están definidos
+
+Los 18 festivos nacionales de Colombia para 2026 están definidos en:
+```
+supabase/migrations/0004_seed_holidays_2026.sql
+```
+
+Esta migración usa `ON CONFLICT (date) DO NOTHING`, así que es segura para re-ejecutar.
+
+### Cómo agregar un festivo nuevo
+
+**Opción A — Insert directo en Supabase (cambios puntuales):**
+
+Si es un solo festivo nuevo y no querés tocar migraciones:
 ```sql
 INSERT INTO holidays (date, name)
-VALUES ('2027-01-01', 'Año Nuevo');
+VALUES ('2027-07-01', 'Nuevo Festivo Nacional')
+ON CONFLICT (date) DO NOTHING;
 ```
+
+**Opción B — Agregar a la migración de seed (recomendado):**
+
+Editá `supabase/migrations/0004_seed_holidays_2026.sql` y agregá la nueva fila al bloque `INSERT`. Esto deja trazabilidad en el repo.
+
+### Revisión anual
+
+⚠️ **Todos los años, antes del 15 de enero, verificá:**
+
+1. Que los festivos del año nuevo estén en la tabla `holidays`
+2. Que las fechas móviles (basadas en Semana Santa) sean correctas para ese año
+3. Si creaste una nueva migración de seed para el año (ej: `000X_seed_holidays_2027.sql`), actualizá esta sección del documento
+
+Los festivos de fecha fija (Año Nuevo, Día del Trabajo, Independencia, Batalla de Boyacá, Inmaculada Concepción, Navidad) nunca cambian. Los festivos móviles (Semana Santa, Ascensión, Corpus Christi, Sagrado Corazón) dependen de la fecha de Pascua y deben recalcularse cada año.
 
 ---
 

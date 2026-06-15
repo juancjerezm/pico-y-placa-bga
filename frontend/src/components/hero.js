@@ -31,6 +31,7 @@ const RESTRICTION_HOURS = {
 };
 
 let countdownInterval = null;
+let isActive = true;
 
 /**
  * Red → Orange → Amber → Yellow → Lime → Green (6 stops).
@@ -77,10 +78,27 @@ function setBarGlow(barEl, pct) {
 }
 
 /**
+ * Stop the countdown timer and hide progress elements.
+ */
+export function stopCountdown() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  const timerEl = document.getElementById("hero-timer");
+  const progressEl = document.getElementById("hero-progress");
+  if (timerEl) {
+    timerEl.style.display = "none";
+    timerEl.textContent = "";
+  }
+  if (progressEl) progressEl.style.display = "none";
+}
+
+/**
  * Start the live countdown timer (updates every second for smooth progress).
  */
 export function startCountdown() {
-  if (countdownInterval) clearInterval(countdownInterval);
+  stopCountdown();
   updateCountdown();
   countdownInterval = setInterval(updateCountdown, 1000);
 }
@@ -94,8 +112,8 @@ function updateCountdown() {
   const now = new Date();
   const day = now.getDay();
 
-  // No restriction on Sundays
-  if (day === 0) {
+  // No restriction on Sundays or festivos / non-active days
+  if (day === 0 || !isActive) {
     timerEl.textContent = "";
     timerEl.style.display = "none";
     if (progressEl) progressEl.style.display = "none";
@@ -205,6 +223,8 @@ export function renderHero(data) {
 
   if (!data.digits || data.digits.length === 0) {
     // Calm "no restriction" state — text instant, subtle scale-in
+    isActive = false;
+    stopCountdown();
     digitEl.textContent = "—";
     digitEl.classList.remove("hero-digit--active");
     digitEl.classList.add("hero-digit--calm");
@@ -215,11 +235,14 @@ export function renderHero(data) {
   }
 
   // Show digits instantly (e.g., "5 - 6")
+  isActive = true;
   const digitText = data.digits.join(" - ");
   digitEl.textContent = digitText;
   digitEl.classList.remove("hero-digit--calm");
   digitEl.classList.add("hero-digit--active");
   subEl.textContent = isToday ? "Restricción hoy" : "Restricción";
+
+  if (isToday) startCountdown();
 
   // Flip animation — decorative only, text is already visible
   animate(

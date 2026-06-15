@@ -791,6 +791,51 @@ describe("Edge cases", () => {
     expect(body.last_digit).toBe(5);
   });
 
+  // -------------------------------------------------------------------------
+  // Holiday regression: real 2026 Colombian holidays (seed migration 0004)
+  // -------------------------------------------------------------------------
+
+  it("returns restricted=false for Sagrado Corazón (Jun 15, 2026)", async () => {
+    const queries = mockQueries({
+      getRotation: async () => makeRotation(),
+      getHoliday: async (): Promise<HolidayRow> => ({
+        date: "2026-06-15",
+        name: "Sagrado Corazón de Jesús",
+      }),
+    });
+    const url = makeUrl("/v1/restriccion", {
+      municipio: "bucaramanga",
+      fecha: "2026-06-15", // Monday — lunes restricts 5,6
+      placa: "ABC005",      // digit 5, would be restricted without holiday
+    });
+    const resp = await handleRestriccion(url, queries);
+    const body = await bodyJson(resp);
+
+    expect(resp.status).toBe(200);
+    expect(body.restricted).toBe(false);
+    expect(body.rule).toBe("festivo");
+    expect(body.last_digit).toBe(5);
+  });
+
+  it("returns restricted=true on non-holiday Monday for same digit", async () => {
+    const queries = mockQueries({
+      getRotation: async () => makeRotation(),
+      // getHoliday returns null — no holiday for this date
+    });
+    const url = makeUrl("/v1/restriccion", {
+      municipio: "bucaramanga",
+      fecha: "2026-06-22", // Monday, not a Colombian holiday
+      placa: "ABC005",     // digit 5 — restricted on Monday (lunes: [5,6])
+    });
+    const resp = await handleRestriccion(url, queries);
+    const body = await bodyJson(resp);
+
+    expect(resp.status).toBe(200);
+    expect(body.restricted).toBe(true);
+    expect(body.rule).toBe("weekday");
+    expect(body.last_digit).toBe(5);
+  });
+
   it("handles accented weekday keys in raw_payload", async () => {
     // Scraper stores "miércoles" (accented). Worker should handle both.
     const queries = mockQueries({
