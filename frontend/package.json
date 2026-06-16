@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.17.1",
   "description": "Pico y Placa Bucaramanga — static frontend (Vite + vanilla JS + Motion One)",
   "scripts": {
     "dev": "vite",
