@@ -34,16 +34,15 @@ let countdownInterval = null;
 let isActive = true;
 
 /**
- * Red → Orange → Amber → Yellow → Lime → Green (6 stops).
- * Cada color cubre ~16.6% del progreso total.
+ * Rojo → Naranja rojizo → Naranja → Amarillo → Verde (5 stops, ~25 % cada uno).
+ * Inicio: rojo. Después de unas horas: naranja rojizo.
+ * Mediodía (~50 %): naranja puro. Tarde (~75 %): amarillo. Final: verde.
  */
 const COLOR_STOPS = [
-  [239, 68, 68],   // 0%   — red    #ef4444
-  [249, 115, 22],  // 17%  — orange #f97316
-  [245, 158, 11],  // 33%  — amber  #f59e0b
-  [234, 179, 8],   // 50%  — yellow #eab308
-  [228, 210, 25],  // 67%  — lima amarillito
-  [242, 255, 0],   // 83%  — amarillo neón #F2FF00
+  [239, 68, 68],   // 0%   — rojo #ef4444
+  [234, 88, 12],   // 25%  — naranja rojizo #ea580c
+  [249, 115, 22],  // 50%  — naranja #f97316 (mediodía)
+  [234, 179, 8],   // 75%  — amarillo #eab308 (tarde)
   [34, 197, 94],   // 100% — verde #22c55e
 ];
 
@@ -58,11 +57,11 @@ function lerpColor(c1, c2, t) {
 }
 
 /**
- * 6-color rainbow gradient across the restriction window.
+ * 5-color gradient across the restriction window.
  */
 function progressColor(pct) {
   const t = Math.min(pct / 100, 1);
-  const segments = COLOR_STOPS.length - 1; // 6 segments
+  const segments = COLOR_STOPS.length - 1; // 4 segments
   const seg = Math.min(Math.floor(t * segments), segments - 1);
   const local = (t * segments) - seg;
   return lerpColor(COLOR_STOPS[seg], COLOR_STOPS[seg + 1], local);
