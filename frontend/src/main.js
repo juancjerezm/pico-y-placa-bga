@@ -10,6 +10,7 @@ import {
   loadLastQuery,
   saveMunicipioPreference,
   loadMunicipioPreference,
+  clearStorage,
 } from "./storage.js";
 import { renderHero, updateHero } from "./components/hero.js";
 import { initInput, todayISO } from "./components/input.js";
@@ -69,7 +70,36 @@ async function bootstrap() {
     });
   }
 
-  // 6. Wire date change → hero re-fetch
+  // 6. Wire clear button → reset form + localStorage + hero
+  const clearBtn = document.getElementById("limpiar-btn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      clearStorage();
+      state.municipio = "bucaramanga";
+      state.fecha = todayISO();
+      state.lastResult = null;
+
+      const pi = document.getElementById("plate-input");
+      const ms = document.getElementById("municipio-select");
+      const di = document.getElementById("date-input");
+      const ld = document.getElementById("live-digit");
+
+      if (pi) pi.value = "";
+      if (ms) ms.value = "bucaramanga";
+      if (di) di.value = state.fecha;
+      if (ld) {
+        ld.textContent = "";
+        ld.classList.remove("live-digit--visible");
+      }
+
+      hideResult();
+      fetchHeroData(state.municipio, state.fecha).then((heroData) => {
+        renderHero({ ...heroData, municipio: state.municipio, fecha: state.fecha });
+      });
+    });
+  }
+
+  // 7. Wire date change → hero re-fetch
   const dateInput = document.getElementById("date-input");
   if (dateInput) {
     dateInput.addEventListener("change", () => {

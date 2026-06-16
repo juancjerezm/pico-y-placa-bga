@@ -181,17 +181,28 @@ The system MUST return HTTP 200 for any valid `municipio` (default `bucaramanga`
 
 ### REQ-API-007: Authentication, CORS, and rate limiting
 
-The system MUST NOT require authentication. The system MUST NOT enable CORS (no `Access-Control-Allow-Origin` header is emitted on any response). The system MUST NOT implement application-layer rate limiting. Caching is delegated to the `Cache-Control` header on 200 responses.
+The system MUST NOT require authentication. The system MUST enable CORS for all origins (`Access-Control-Allow-Origin: *`) and handle OPTIONS preflight requests. The system MUST implement rate limiting at 100 requests per minute per IP (Nivel 1 MVP).
 
-#### Scenario: No CORS header on 200
-- GIVEN any successful request
+#### Scenario: CORS headers present on all responses
+- GIVEN any request (200, 400, 404)
 - WHEN the response is observed
-- THEN no `Access-Control-*` header is present
+- THEN `Access-Control-Allow-Origin: *` is present
+- AND `Access-Control-Allow-Methods: GET, OPTIONS` is present
+
+#### Scenario: OPTIONS preflight is handled
+- GIVEN an OPTIONS request to any endpoint
+- WHEN the request is processed
+- THEN HTTP 204 is returned with CORS headers
 
 #### Scenario: No auth required
 - GIVEN a request with no `Authorization` header
 - WHEN the API is called
 - THEN the request succeeds (subject to the normal validation rules)
+
+#### Scenario: Rate limiting enforced at 100 req/min
+- GIVEN a single IP sends more than 100 requests in a 60-second window
+- WHEN the 101st request arrives
+- THEN HTTP 429 is returned
 
 ### REQ-API-008: Municipality slug enum
 
